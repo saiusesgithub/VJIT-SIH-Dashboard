@@ -21,10 +21,10 @@ export function getDb() {
   const adapter = new PrismaNeon({ connectionString });
   const prisma = new PrismaClient({ adapter });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = prisma;
-    globalForPrisma.prismaConnectionString = connectionString;
-  }
+  // Vercel Fluid compute can serve concurrent requests from one warm process.
+  // Keep one client per process in production as well as across local hot reloads.
+  globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaConnectionString = connectionString;
 
   return prisma;
 }

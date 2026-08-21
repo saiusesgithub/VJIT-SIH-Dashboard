@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type {
   Judge as DbJudge,
   ProblemStatement as DbProblemStatement,
@@ -182,7 +183,7 @@ const venueInclude = {
   },
 };
 
-async function getProgressSource() {
+const getProgressSource = cache(async () => {
   const db = getDb();
   const hackathon = await getCurrentHackathonRecord();
   if (!hackathon) return { rounds: [], teams: [] };
@@ -198,13 +199,100 @@ async function getProgressSource() {
     }),
   ]);
   return { rounds: roundRecords.map(mapRound), teams: teamRecords };
-}
+});
 
-async function getCurrentHackathonRecord() {
+const getCurrentHackathonRecord = cache(async () => {
   const db = getDb();
   return (await db.hackathon.findFirst({ where: { status: "LIVE" }, orderBy: { startDate: "desc" } }))
     ?? db.hackathon.findFirst({ orderBy: { startDate: "desc" } });
-}
+});
+
+const getAdminBaseData = cache(async () => {
+  const include = {
+    venues: { include: venueInclude, orderBy: { displayOrder: "asc" as const } },
+    reviewRounds: { orderBy: { displayOrder: "asc" as const } },
+    teams: {
+      select: {
+        id: true,
+        teamCode: true,
+        teamName: true,
+        venueId: true,
+        problemStatementId: true,
+        reviews: {
+          select: {
+            id: true,
+            reviewRoundId: true,
+            judgeId: true,
+            status: true,
+            startedAt: true,
+            submittedAt: true,
+            generalRemarks: true,
+            improvements: true,
+          },
+        },
+      },
+      orderBy: { teamCode: "asc" as const },
+    },
+  };
+  const db = getDb();
+  const record = (await db.hackathon.findFirst({ where: { status: "LIVE" }, orderBy: { startDate: "desc" }, include }))
+    ?? await db.hackathon.findFirst({ orderBy: { startDate: "desc" }, include });
+  if (!record) return null;
+
+  const venues = record.venues.map(mapVenue);
+  const rounds = record.reviewRounds.map(mapRound);
+  const teams: ProgressTeam[] = record.teams.map((team) => ({
+    id: team.id,
+    venueId: team.venueId,
+    reviews: team.reviews.map((review) => ({ reviewRoundId: review.reviewRoundId, status: review.status })),
+  }));
+  const currentlyReviewing: ActiveReview[] = record.teams
+    .flatMap((team) => team.reviews
+      .filter((review) => review.status === DbReviewStatus.IN_PROGRESS)
+      .flatMap((review) => {
+        const venue = venues.find((candidate) => candidate.id === team.venueId);
+        const round = rounds.find((candidate) => candidate.id === review.reviewRoundId);
+        if (!venue || !round) return [];
+        return [{
+          review: {
+            id: review.id,
+            teamId: team.id,
+            roundId: review.reviewRoundId,
+            judgeId: review.judgeId ?? "",
+            status: statusMap[review.status],
+            startedAt: review.startedAt?.toISOString(),
+            submittedAt: review.submittedAt?.toISOString(),
+            scores: [],
+            remarks: review.generalRemarks ?? undefined,
+            improvements: review.improvements ?? undefined,
+          },
+          team: {
+            id: team.id,
+            code: team.teamCode,
+            name: team.teamName,
+            venueId: team.venueId,
+            problemStatementId: team.problemStatementId,
+            members: [],
+          },
+          venue,
+          round,
+        }];
+      }))
+    .sort((left, right) => (right.review.startedAt ?? "").localeCompare(left.review.startedAt ?? ""))
+    .slice(0, 4);
+
+  return {
+    venueRecords: record.venues,
+    venues,
+    source: { rounds, teams },
+    teams: record.teams,
+    currentlyReviewing,
+  };
+});
+
+const getCurrentlyReviewingData = cache(async (): Promise<ActiveReview[]> => {
+  return (await getAdminBaseData())?.currentlyReviewing ?? [];
+});
 
 export interface EvaluationRepository {
   getHackathonOverview(): Promise<HackathonOverviewData>;
@@ -306,64 +394,33 @@ export const evaluationRepository: EvaluationRepository = {
   },
 
   async getCurrentlyReviewing() {
-    const hackathon = await getCurrentHackathonRecord();
-    if (!hackathon) return [];
-    const records = await getDb().review.findMany({
-      where: { status: DbReviewStatus.IN_PROGRESS, team: { hackathonId: hackathon.id } },
-      include: {
-        scores: true,
-        reviewRound: true,
-        team: { include: { members: true, venue: { include: venueInclude } } },
-      },
-      orderBy: { startedAt: "desc" },
-      take: 4,
-    });
-    return records.map((record) => ({
-      review: mapReview(record),
-      team: mapTeam(record.team),
-      venue: mapVenue(record.team.venue),
-      round: mapRound(record.reviewRound),
-    }));
+    return getCurrentlyReviewingData();
   },
 
   async getHackathonOverview() {
-    const db = getDb();
-    const hackathon = await getCurrentHackathonRecord();
-    if (!hackathon) return { teamCount: 0, overall: calculateOverall([], []), venues: [], currentlyReviewing: [] };
-    const [venueRecords, source, currentlyReviewing] = await Promise.all([
-      db.venue.findMany({ where: { hackathonId: hackathon.id }, include: venueInclude, orderBy: { displayOrder: "asc" } }),
-      getProgressSource(),
-      this.getCurrentlyReviewing(),
-    ]);
-    const mappedVenues = venueRecords.map(mapVenue);
+    const base = await getAdminBaseData();
+    if (!base) return { teamCount: 0, overall: calculateOverall([], []), venues: [], currentlyReviewing: [] };
     return {
-      teamCount: source.teams.length,
-      overall: calculateOverall(source.rounds, source.teams),
-      venues: mappedVenues.map((venue) => calculateVenueProgress(venue, source.rounds, source.teams)),
-      currentlyReviewing,
+      teamCount: base.source.teams.length,
+      overall: calculateOverall(base.source.rounds, base.source.teams),
+      venues: base.venues.map((venue) => calculateVenueProgress(venue, base.source.rounds, base.source.teams)),
+      currentlyReviewing: base.currentlyReviewing,
     };
   },
 
   async getAdminShellData() {
-    const db = getDb();
-    const hackathon = await getCurrentHackathonRecord();
-    if (!hackathon) return { venues: [], teamContexts: [] };
-    const [venueRecords, source, teams] = await Promise.all([
-      db.venue.findMany({ where: { hackathonId: hackathon.id }, include: venueInclude, orderBy: { displayOrder: "asc" } }),
-      getProgressSource(),
-      db.team.findMany({ where: { hackathonId: hackathon.id }, select: { id: true, teamCode: true, teamName: true, venueId: true } }),
-    ]);
-    const mappedVenues = venueRecords.map(mapVenue);
+    const base = await getAdminBaseData();
+    if (!base) return { venues: [], teamContexts: [] };
     return {
-      venues: mappedVenues.map((venue) => calculateVenueProgress(venue, source.rounds, source.teams)),
-      teamContexts: teams.map((team) => {
-        const venueIndex = mappedVenues.findIndex((venue) => venue.id === team.venueId);
-        const venueRecord = venueRecords[venueIndex];
+      venues: base.venues.map((venue) => calculateVenueProgress(venue, base.source.rounds, base.source.teams)),
+      teamContexts: base.teams.map((team) => {
+        const venueIndex = base.venues.findIndex((venue) => venue.id === team.venueId);
+        const venueRecord = base.venueRecords[venueIndex];
         return {
           teamId: team.id,
           teamCode: team.teamCode,
           teamName: team.teamName,
-          venue: mappedVenues[venueIndex],
+          venue: base.venues[venueIndex],
           judge: venueRecord?.judgeAssignments[0] ? mapJudge(venueRecord.judgeAssignments[0].judge, team.venueId) : undefined,
         };
       }),
@@ -404,10 +461,9 @@ export const evaluationRepository: EvaluationRepository = {
 
   async getTeamPageData(teamId) {
     if (!isSafeLookupId(teamId)) return null;
-    const hackathon = await getCurrentHackathonRecord();
-    if (!hackathon) return null;
     const record = await getDb().team.findFirst({
-      where: { hackathonId: hackathon.id, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
+      where: { OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
+      orderBy: { hackathon: { startDate: "desc" } },
       include: {
         members: { orderBy: { id: "asc" } },
         problemStatement: true,
