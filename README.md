@@ -32,6 +32,7 @@ DATABASE_URL_UNPOOLED="postgresql://USER:PASSWORD@HOST.neon.tech/DATABASE?sslmod
 DIRECT_URL=""
 ADMIN_PIN="your-shared-faculty-pin"
 ADMIN_SESSION_SECRET="a-random-secret-with-at-least-32-characters"
+JUDGE_PIN_LOOKUP_SECRET="another-random-secret-with-at-least-32-characters"
 ```
 
 `DATABASE_URL` is used only by the server-side application through `@prisma/adapter-neon`. `DATABASE_URL_UNPOOLED` is used by Prisma CLI for migrations and seed operations; `DIRECT_URL` is supported as an optional alias. Never expose database or admin secrets with a `NEXT_PUBLIC_` prefix.
@@ -43,7 +44,7 @@ openssl rand -hex 32
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-`ADMIN_PIN` is the shared faculty PIN. `ADMIN_SESSION_SECRET` signs the 12-hour HTTP-only session cookie and must contain at least 32 characters. Changing either value invalidates existing access expectations; changing the session secret immediately invalidates all active sessions.
+`ADMIN_PIN` is the shared faculty PIN. `ADMIN_SESSION_SECRET` signs the 12-hour HTTP-only session cookie and must contain at least 32 characters. `JUDGE_PIN_LOOKUP_SECRET` creates the keyed judge-PIN lookup and should stay identical for every deployment that accesses the same database. It falls back to `ADMIN_SESSION_SECRET` for existing environments, but a separate production value is recommended. Changing either secret requires rerunning the judge PIN seed; changing the session secret also immediately invalidates active sessions.
 
 The same `ADMIN_SESSION_SECRET` signs a separately scoped 12-hour judge cookie. Judge identities and venue IDs come from the signed cookie and are verified against the database on every protected data operation; raw judge PINs never enter a cookie or database row.
 
@@ -69,7 +70,7 @@ For development only, the deterministic judge PINs are:
 - Lab 3: `3333`
 - Lab 4: `4444`
 
-Only bcrypt hashes are stored. `npm run db:seed:judge-pins` safely updates just the four existing assignment hashes without resetting hackathon or review data. Replace these credentials before a real event by setting new bcrypt hashes on the relevant `VenueJudge` records; never reuse the development PINs in production.
+No raw PIN is stored. Each assignment keeps a bcrypt cost-10 hash plus a keyed HMAC lookup derived with `JUDGE_PIN_LOOKUP_SECRET` (or the documented fallback). The lookup identifies one assignment without running bcrypt against every judge, then bcrypt verifies the submitted PIN. `npm run db:seed:judge-pins` safely updates both values for the four existing assignments without resetting hackathon or review data. If the lookup secret changes, rerun this command so the stored values match it. Replace the development credentials before a real event; never reuse them in production.
 
 ## Database commands
 
@@ -85,10 +86,13 @@ npm run db:studio    # Open Prisma Studio
 
 ## Vercel deployment
 
-1. Add `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in **Project Settings → Environment Variables** for the required Preview and Production environments.
+1. Add `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, `ADMIN_SESSION_SECRET`, and `JUDGE_PIN_LOOKUP_SECRET` in **Project Settings → Environment Variables** for the required Preview and Production environments.
 2. Use Neon's pooled connection for `DATABASE_URL` and direct connection for `DATABASE_URL_UNPOOLED`.
-3. Before deploying an application version with schema changes, run `npm run db:deploy` from a trusted local or CI environment with the production `DATABASE_URL_UNPOOLED` configured.
-4. Deploy normally. The build command generates Prisma Client before running `next build`.
+3. Keep the Vercel Function region aligned with the Neon region. This repository's Neon database is in AWS `ap-southeast-1`, so `vercel.json` pins Vercel Functions to Singapore (`sin1`) and enables Fluid compute.
+4. Before deploying an application version with schema changes, run `npm run db:deploy` from a trusted local or CI environment with the production `DATABASE_URL_UNPOOLED` configured.
+5. Deploy normally. The build command generates Prisma Client before running `next build`.
+
+If the Neon project is moved to another region, update `regions` in `vercel.json` to the nearest Vercel Function region. Keeping application compute near PostgreSQL avoids paying intercontinental network latency for every server-rendered database query.
 
 Do not run `prisma migrate dev` against the production database. Do not seed production unless the deterministic internal demo dataset is intentionally required.
 
