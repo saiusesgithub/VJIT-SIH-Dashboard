@@ -18,15 +18,15 @@ React components do not query Prisma directly. The files in `src/data/mock` are 
 1. Create a free project in the [Neon console](https://console.neon.tech/).
 2. Open **Connection Details** for the database.
 3. Copy the pooled connection string (its hostname normally contains `-pooler`) into `DATABASE_URL`.
-4. Copy the direct/unpooled connection string into `DIRECT_URL`.
+4. Copy the direct/unpooled connection string into `DATABASE_URL_UNPOOLED`.
 5. Copy `.env.example` to `.env` and add both values:
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.neon.tech/DATABASE?sslmode=require"
-DIRECT_URL="postgresql://USER:PASSWORD@HOST.neon.tech/DATABASE?sslmode=require"
+DATABASE_URL_UNPOOLED="postgresql://USER:PASSWORD@HOST.neon.tech/DATABASE?sslmode=require"
 ```
 
-`DATABASE_URL` is used only by the server-side application through `@prisma/adapter-neon`. `DIRECT_URL` is used by Prisma CLI for migrations and seed operations. Never expose either variable with a `NEXT_PUBLIC_` prefix.
+`DATABASE_URL` is used only by the server-side application through `@prisma/adapter-neon`. `DATABASE_URL_UNPOOLED` is used by Prisma CLI for migrations and seed operations. Never expose either variable with a `NEXT_PUBLIC_` prefix.
 
 ## Local setup
 
@@ -49,14 +49,15 @@ npm run db:generate  # Generate the typed Prisma client
 npm run db:migrate   # Create/apply development migrations
 npm run db:deploy    # Apply committed migrations in CI/production
 npm run db:seed      # Deterministically seed the internal hackathon
+npm run db:verify    # Verify Neon connectivity and dashboard row counts
 npm run db:studio    # Open Prisma Studio
 ```
 
 ## Vercel deployment
 
-1. Add `DATABASE_URL` and `DIRECT_URL` in **Project Settings → Environment Variables** for the required Preview and Production environments.
-2. Use Neon's pooled connection for `DATABASE_URL` and direct connection for `DIRECT_URL`.
-3. Before deploying an application version with schema changes, run `npm run db:deploy` from a trusted local or CI environment with the production `DIRECT_URL` configured.
+1. Add `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in **Project Settings → Environment Variables** for the required Preview and Production environments.
+2. Use Neon's pooled connection for `DATABASE_URL` and direct connection for `DATABASE_URL_UNPOOLED`.
+3. Before deploying an application version with schema changes, run `npm run db:deploy` from a trusted local or CI environment with the production `DATABASE_URL_UNPOOLED` configured.
 4. Deploy normally. The build command generates Prisma Client before running `next build`.
 
 Do not run `prisma migrate dev` against the production database. Do not seed production unless the deterministic internal demo dataset is intentionally required.
