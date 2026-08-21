@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { PrismaNeon } from "@prisma/adapter-neon";
+import { hash } from "bcryptjs";
 import { PrismaClient, ReviewStatus } from "../src/generated/prisma/client";
 import { hackathon, judges, problemStatements, reviewRounds, reviews, rubrics, teams, venues } from "../src/data/mock/index";
 
@@ -17,6 +18,13 @@ const statusMap = {
   in_progress: ReviewStatus.IN_PROGRESS,
   completed: ReviewStatus.COMPLETED,
 } as const;
+
+const developmentJudgePins: Record<string, string> = {
+  "lab-1": "1111",
+  "lab-2": "2222",
+  "lab-3": "3333",
+  "lab-4": "4444",
+};
 
 async function seed() {
   // The mock event uses stable IDs. Remove its dependent rows in an explicit
@@ -68,6 +76,9 @@ async function seed() {
   );
 
   for (const [index, venue] of venues.entries()) {
+    const developmentPin = developmentJudgePins[venue.id];
+    if (!developmentPin) throw new Error(`No development judge PIN configured for ${venue.id}`);
+
     await prisma.venue.create({
       data: {
         id: venue.id,
@@ -86,6 +97,7 @@ async function seed() {
         venueId: venue.id,
         judgeId: venue.judgeId,
         isPrimary: true,
+        pinHash: await hash(developmentPin, 12),
       },
     });
   }
