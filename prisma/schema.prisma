@@ -81,6 +81,7 @@ model VenueJudge {
   judgeId   String
   isPrimary Boolean  @default(false)
   pinHash   String?
+  pinLookup String?  @unique
   createdAt DateTime @default(now())
   venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   judge     Judge    @relation(fields: [judgeId], references: [id], onDelete: Cascade)

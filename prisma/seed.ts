@@ -3,6 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { hash } from "bcryptjs";
 import { PrismaClient, ReviewStatus } from "../src/generated/prisma/client";
 import { hackathon, judges, problemStatements, reviewRounds, reviews, rubrics, teams, venues } from "../src/data/mock/index";
+import { createJudgePinLookup, JUDGE_PIN_BCRYPT_COST } from "../src/lib/judge-pin-credential";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 
@@ -97,7 +98,8 @@ async function seed() {
         venueId: venue.id,
         judgeId: venue.judgeId,
         isPrimary: true,
-        pinHash: await hash(developmentPin, 12),
+        pinHash: await hash(developmentPin, JUDGE_PIN_BCRYPT_COST),
+        pinLookup: createJudgePinLookup(developmentPin),
       },
     });
   }

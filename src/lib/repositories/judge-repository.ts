@@ -1,7 +1,9 @@
 import "server-only";
 import { compare } from "bcryptjs";
+import { cache } from "react";
 import { Prisma, ReviewStatus } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
+import { createJudgePinLookup, DUMMY_JUDGE_PIN_HASH } from "@/lib/judge-pin-credential";
 import type { JudgeSessionPayload } from "@/lib/judge-session";
 import type { ReviewStatus as UiReviewStatus } from "@/types/domain";
 
@@ -84,24 +86,25 @@ function mapIdentity(assignment: Prisma.VenueJudgeGetPayload<{ include: typeof a
   };
 }
 
-async function assignmentForSession(session: JudgeSessionPayload) {
-  const assignment = await getDb().venueJudge.findFirst({
-    where: { id: session.assignmentId, judgeId: session.judgeId, venueId: session.venueId, pinHash: { not: null } },
+const findSessionAssignment = cache(async (assignmentId: string, judgeId: string, venueId: string) => {
+  return getDb().venueJudge.findFirst({
+    where: { id: assignmentId, judgeId, venueId, pinHash: { not: null } },
     include: assignmentInclude,
   });
-  return assignment;
+});
+
+function assignmentForSession(session: JudgeSessionPayload) {
+  return findSessionAssignment(session.assignmentId, session.judgeId, session.venueId);
 }
 
 export async function authenticateJudgeByPin(pin: string): Promise<JudgeIdentity | null> {
   if (!pin || pin.length > 128) return null;
-  const assignments = await getDb().venueJudge.findMany({
-    where: { pinHash: { not: null } },
+  const assignment = await getDb().venueJudge.findUnique({
+    where: { pinLookup: createJudgePinLookup(pin) },
     include: assignmentInclude,
-    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
   });
-  const matches = await Promise.all(assignments.map((assignment) => compare(pin, assignment.pinHash ?? "$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalid")));
-  const index = matches.findIndex(Boolean);
-  return index >= 0 ? mapIdentity(assignments[index]) : null;
+  const matches = await compare(pin, assignment?.pinHash ?? DUMMY_JUDGE_PIN_HASH);
+  return assignment && matches ? mapIdentity(assignment) : null;
 }
 
 export async function getJudgeSessionData(session: JudgeSessionPayload) {
@@ -110,17 +113,31 @@ export async function getJudgeSessionData(session: JudgeSessionPayload) {
 }
 
 export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<JudgeDashboardData | null> {
-  const assignment = await assignmentForSession(session);
+  const assignment = await getDb().venueJudge.findFirst({
+    where: {
+      id: session.assignmentId,
+      judgeId: session.judgeId,
+      venueId: session.venueId,
+      pinHash: { not: null },
+    },
+    include: {
+      judge: true,
+      venue: {
+        include: {
+          hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } },
+          teams: {
+            include: { problemStatement: true, reviews: true },
+            orderBy: { teamCode: "asc" },
+          },
+          problemStatements: { select: { code: true }, orderBy: { code: "asc" } },
+        },
+      },
+    },
+  });
   if (!assignment) return null;
-  const [rounds, teams, statements] = await Promise.all([
-    getDb().reviewRound.findMany({ where: { hackathonId: assignment.venue.hackathonId }, orderBy: { displayOrder: "asc" } }),
-    getDb().team.findMany({
-      where: { venueId: assignment.venueId, hackathonId: assignment.venue.hackathonId },
-      include: { problemStatement: true, reviews: true },
-      orderBy: { teamCode: "asc" },
-    }),
-    getDb().problemStatement.findMany({ where: { venueId: assignment.venueId }, select: { code: true }, orderBy: { code: "asc" } }),
-  ]);
+  const rounds = assignment.venue.hackathon.reviewRounds;
+  const teams = assignment.venue.teams;
+  const statements = assignment.venue.problemStatements;
   const summaries = teams.map((team) => ({
     id: team.id,
     code: team.teamCode,
@@ -151,17 +168,20 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
 }
 
 export async function getJudgeTeamDetails(session: JudgeSessionPayload, teamId: string): Promise<JudgeTeamData | null> {
-  if (!safeId(teamId) || !(await assignmentForSession(session))) return null;
-  const team = await getDb().team.findFirst({
-    where: { venueId: session.venueId, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
-    include: {
-      members: { orderBy: { id: "asc" } },
-      problemStatement: true,
-      reviews: { include: { reviewRound: true }, orderBy: { reviewRound: { displayOrder: "asc" } } },
-      hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } },
-    },
-  });
-  if (!team) return null;
+  if (!safeId(teamId)) return null;
+  const [assignment, team] = await Promise.all([
+    assignmentForSession(session),
+    getDb().team.findFirst({
+      where: { venueId: session.venueId, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
+      include: {
+        members: { orderBy: { id: "asc" } },
+        problemStatement: true,
+        reviews: { include: { reviewRound: true }, orderBy: { reviewRound: { displayOrder: "asc" } } },
+        hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } },
+      },
+    }),
+  ]);
+  if (!assignment || !team) return null;
   return {
     id: team.id,
     code: team.teamCode,
@@ -182,21 +202,28 @@ export async function getJudgeTeamDetails(session: JudgeSessionPayload, teamId: 
 }
 
 export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId: string, roundId: string): Promise<JudgeReviewData | null> {
-  if (!safeId(teamId) || !safeId(roundId) || !(await assignmentForSession(session))) return null;
-  const team = await getDb().team.findFirst({
-    where: { venueId: session.venueId, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
-    select: { id: true, teamCode: true, teamName: true, hackathonId: true },
-  });
-  if (!team) return null;
-  const round = await getDb().reviewRound.findFirst({
-    where: { id: roundId, hackathonId: team.hackathonId },
-    include: {
-      rubrics: { orderBy: { displayOrder: "asc" } },
-      reviews: { where: { teamId: team.id }, include: { scores: true }, take: 1 },
-    },
-  });
+  if (!safeId(teamId) || !safeId(roundId)) return null;
+  const [assignment, team] = await Promise.all([
+    assignmentForSession(session),
+    getDb().team.findFirst({
+      where: { venueId: session.venueId, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
+      include: {
+        reviews: { include: { scores: true } },
+        hackathon: {
+          include: {
+            reviewRounds: {
+              include: { rubrics: { orderBy: { displayOrder: "asc" } } },
+              orderBy: { displayOrder: "asc" },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+  if (!assignment || !team) return null;
+  const round = team.hackathon.reviewRounds.find((candidate) => candidate.id === roundId);
   if (!round) return null;
-  const review = round.reviews[0];
+  const review = team.reviews.find((candidate) => candidate.reviewRoundId === round.id);
   return {
     team: { id: team.id, code: team.teamCode, name: team.teamName },
     round: { id: round.id, number: round.roundNumber, name: round.name },

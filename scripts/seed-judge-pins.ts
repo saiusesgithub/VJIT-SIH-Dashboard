@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { hash } from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { createJudgePinLookup, JUDGE_PIN_BCRYPT_COST } from "../src/lib/judge-pin-credential";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 
@@ -16,12 +17,14 @@ const developmentPins = [
   { venueId: "lab-3", judgeId: "judge-3", pin: "3333" },
   { venueId: "lab-4", judgeId: "judge-4", pin: "4444" },
 ];
-
 async function main() {
   for (const credential of developmentPins) {
     const result = await prisma.venueJudge.updateMany({
       where: { venueId: credential.venueId, judgeId: credential.judgeId },
-      data: { pinHash: await hash(credential.pin, 12) },
+      data: {
+        pinHash: await hash(credential.pin, JUDGE_PIN_BCRYPT_COST),
+        pinLookup: createJudgePinLookup(credential.pin),
+      },
     });
     if (result.count !== 1) {
       throw new Error(`Expected one assignment for ${credential.venueId}/${credential.judgeId}; found ${result.count}.`);
