@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ChevronRight, Menu, MoreHorizontal, RefreshCw, Scale, UserRound, X } from "lucide-react";
+import { Building2, ChevronRight, LockKeyhole, Menu, RefreshCw, Scale, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { rangeLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -89,7 +89,9 @@ export function AdminShell({ data, children }: { data: AdminShellData; children:
           <div className="hidden items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sm:flex"><span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-40" /><span className="relative inline-flex size-2 rounded-full bg-emerald-500" /></span><span className="text-xs font-medium text-emerald-700">Hackathon Live</span></div>
           <span className="hidden text-xs text-zinc-500 md:block">21 Aug 2026</span>
           <button className="inline-flex size-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800" aria-label="Refresh dashboard"><RefreshCw className="size-3.5" /></button>
-          <button className="inline-flex size-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800" aria-label="More options"><MoreHorizontal className="size-4" /></button>
+          <form action="/admin/logout" method="post">
+            <button type="submit" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-zinc-200 px-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800" aria-label="Lock dashboard" title="Lock dashboard"><LockKeyhole className="size-3.5" /><span className="hidden text-xs font-medium xl:inline">Lock</span></button>
+          </form>
         </div>
       </header>
       <aside className="fixed bottom-0 left-0 top-16 z-30 hidden w-64 border-r border-zinc-200 bg-stone-50 lg:block">
