@@ -1,3 +1,5 @@
+import { createSignedToken, verifySignedToken } from "@/lib/signed-session";
+
 const encoder = new TextEncoder();
 
 export const ADMIN_SESSION_COOKIE = "sih_admin_session";
@@ -11,29 +13,6 @@ interface SessionPayload {
 function getSessionSecret() {
   const secret = process.env.ADMIN_SESSION_SECRET;
   return secret && secret.length >= 32 ? secret : null;
-}
-
-function bytesToBase64Url(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function base64UrlToBytes(value: string) {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-  const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
-async function importSigningKey(secret: string) {
-  return crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign", "verify"],
-  );
 }
 
 async function digest(value: string) {
@@ -64,34 +43,15 @@ export async function createAdminSessionToken() {
     expiresAt: Date.now() + ADMIN_SESSION_DURATION_SECONDS * 1000,
     nonce: crypto.randomUUID(),
   };
-  const encodedPayload = bytesToBase64Url(encoder.encode(JSON.stringify(payload)));
-  const key = await importSigningKey(secret);
-  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(encodedPayload)));
-  return `${encodedPayload}.${bytesToBase64Url(signature)}`;
+  return createSignedToken(payload, secret);
 }
 
 export async function verifyAdminSessionToken(token?: string) {
   const secret = getSessionSecret();
   if (!secret || !token) return false;
 
-  try {
-    const [encodedPayload, encodedSignature, extra] = token.split(".");
-    if (!encodedPayload || !encodedSignature || extra) return false;
-
-    const key = await importSigningKey(secret);
-    const validSignature = await crypto.subtle.verify(
-      "HMAC",
-      key,
-      base64UrlToBytes(encodedSignature),
-      encoder.encode(encodedPayload),
-    );
-    if (!validSignature) return false;
-
-    const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(encodedPayload))) as Partial<SessionPayload>;
-    return typeof payload.expiresAt === "number" && payload.expiresAt > Date.now() && typeof payload.nonce === "string";
-  } catch {
-    return false;
-  }
+  const payload = await verifySignedToken<Partial<SessionPayload>>(token, secret);
+  return typeof payload?.expiresAt === "number" && payload.expiresAt > Date.now() && typeof payload.nonce === "string";
 }
 
 export function adminSessionCookieOptions(expires: Date) {
