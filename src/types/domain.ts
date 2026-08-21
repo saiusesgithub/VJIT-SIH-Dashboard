@@ -41,7 +41,7 @@ export interface TeamMember {
   rollNumber: string;
   department: string;
   year: number;
-  role: "Team Lead" | "Developer" | "Designer" | "Researcher";
+  role: string;
 }
 
 export interface Team {
@@ -55,7 +55,7 @@ export interface Team {
 
 export interface ReviewRound {
   id: string;
-  number: 1 | 2 | 3;
+  number: number;
   name: string;
   rubricId: string;
 }
@@ -92,9 +92,9 @@ export interface Review {
 
 export interface UserProfile {
   id: string;
-  name: string;
-  email: string;
-  role: "admin" | "faculty" | "judge" | "team";
+  name?: string;
+  email?: string;
+  role: "admin" | "judge" | "team";
 }
 
 export interface ReviewProgress {
@@ -113,4 +113,66 @@ export interface VenueProgress {
   completedReviews: number;
   totalReviews: number;
   percentage: number;
+}
+
+export interface ActiveReview {
+  review: Review;
+  team: Team;
+  venue: Venue;
+  round: ReviewRound;
+}
+
+export interface TeamListItem {
+  team: Team;
+  problemStatement: ProblemStatement;
+  reviews: Review[];
+  latestActivity?: string;
+}
+
+export interface AdminShellTeamContext {
+  teamId: string;
+  teamCode: string;
+  teamName: string;
+  venue: Venue;
+  judge?: Judge;
+}
+
+export interface AdminShellData {
+  venues: VenueProgress[];
+  teamContexts: AdminShellTeamContext[];
+}
+
+export interface OverallProgress {
+  rounds: ReviewProgress[];
+  completedReviews: number;
+  totalReviews: number;
+  percentage: number;
+}
+
+export interface HackathonOverviewData {
+  teamCount: number;
+  overall: OverallProgress;
+  venues: VenueProgress[];
+  currentlyReviewing: ActiveReview[];
+}
+
+export interface VenuePageData {
+  venue: Venue;
+  progress: VenueProgress;
+  teams: TeamListItem[];
+}
+
+export interface TeamReviewDetail {
+  review: Review;
+  round: ReviewRound;
+  rubric: Rubric;
+  judge: Judge;
+}
+
+export interface TeamPageData {
+  team: Team;
+  venue: Venue;
+  problemStatement: ProblemStatement;
+  judge: Judge;
+  reviews: TeamReviewDetail[];
 }
