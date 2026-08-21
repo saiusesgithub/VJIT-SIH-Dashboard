@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,8 +18,12 @@ export const metadata: Metadata = {
     default: "VJIT SIH Evaluation Dashboard",
     template: "%s · VJIT SIH",
   },
-  description: "Faculty operations dashboard for the VJIT SIH Internal Hackathon.",
+  description: "Faculty operations and judge evaluation workspace for the VJIT SIH Internal Hackathon.",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icons/vjit-sih.svg", apple: "/icons/vjit-sih-192.png" },
 };
+
+export const viewport: Viewport = { themeColor: "#18181b", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -26,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-stone-50 text-zinc-950">{children}</body>
+      <body className="min-h-full bg-stone-50 text-zinc-950">{children}<ServiceWorkerRegistration /></body>
     </html>
   );
 }
