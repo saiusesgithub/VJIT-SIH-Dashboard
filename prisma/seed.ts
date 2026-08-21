@@ -3,7 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient, ReviewStatus } from "../src/generated/prisma/client";
 import { hackathon, judges, problemStatements, reviewRounds, reviews, rubrics, teams, venues } from "../src/data/mock/index";
 
-const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error("Set DATABASE_URL_UNPOOLED (preferred), DIRECT_URL, or DATABASE_URL before running the seed.");
