@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 import { Building2, ChevronRight, Menu, MoreHorizontal, RefreshCw, Scale, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { rangeLabel } from "@/lib/format";
-import { getJudgeForVenue, getTeamById, getVenueById, getVenueProgress, getVenues } from "@/lib/mock-repository";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import type { AdminShellData } from "@/types/domain";
 
 function Logo() {
   return (
@@ -18,8 +18,7 @@ function Logo() {
   );
 }
 
-function VenueNavigation({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  const venues = getVenues();
+function VenueNavigation({ data, pathname, onNavigate }: { data: AdminShellData; pathname: string; onNavigate?: () => void }) {
   return (
     <div className="px-3 py-5">
       <div className="mb-2 flex items-center justify-between px-2">
@@ -27,8 +26,8 @@ function VenueNavigation({ pathname, onNavigate }: { pathname: string; onNavigat
         <span className="text-[11px] tabular-nums text-zinc-400">4 labs</span>
       </div>
       <nav className="space-y-1" aria-label="Venue navigation">
-        {venues.map((venue) => {
-          const progress = getVenueProgress(venue.id)!;
+        {data.venues.map((progress) => {
+          const venue = progress.venue;
           const active = pathname === `/admin/venues/${venue.id}`;
           return (
             <Link key={venue.id} href={`/admin/venues/${venue.id}`} onClick={onNavigate} className={cn("group block rounded-lg border px-3 py-3 transition-colors duration-150", active ? "border-zinc-300 bg-white" : "border-transparent hover:border-zinc-200 hover:bg-white/70")}>
@@ -50,12 +49,11 @@ function VenueNavigation({ pathname, onNavigate }: { pathname: string; onNavigat
   );
 }
 
-function JudgeContext({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function JudgeContext({ data, pathname, onNavigate }: { data: AdminShellData; pathname: string; onNavigate?: () => void }) {
   const teamParam = pathname.split("/admin/teams/")[1];
-  const team = teamParam ? getTeamById(decodeURIComponent(teamParam)) : undefined;
-  const venue = team ? getVenueById(team.venueId) : undefined;
-  const judge = venue ? getJudgeForVenue(venue.id) : undefined;
-  if (!team || !venue || !judge) return <VenueNavigation pathname={pathname} onNavigate={onNavigate} />;
+  const context = teamParam ? data.teamContexts.find((item) => item.teamId === decodeURIComponent(teamParam)) : undefined;
+  if (!context?.judge) return <VenueNavigation data={data} pathname={pathname} onNavigate={onNavigate} />;
+  const { venue, judge } = context;
 
   return (
     <div className="px-5 py-5">
@@ -71,15 +69,15 @@ function JudgeContext({ pathname, onNavigate }: { pathname: string; onNavigate?:
       </dl>
       <div className="mt-5 rounded-lg border border-zinc-200 bg-white p-3">
         <div className="flex items-center gap-2"><Scale className="size-3.5 text-zinc-500" /><span className="text-xs font-medium text-zinc-800">Assigned team</span></div>
-        <p className="mt-2 text-sm font-semibold text-zinc-950">{team.name}</p>
-        <p className="mt-0.5 text-xs text-zinc-500">{team.code} · {venue.name}</p>
+        <p className="mt-2 text-sm font-semibold text-zinc-950">{context.teamName}</p>
+        <p className="mt-0.5 text-xs text-zinc-500">{context.teamCode} · {venue.name}</p>
       </div>
       <Link href={`/admin/venues/${venue.id}`} onClick={onNavigate} className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-800"><ChevronRight className="size-3.5 rotate-180" /> Back to {venue.name}</Link>
     </div>
   );
 }
 
-export function AdminShell({ children }: { children: ReactNode }) {
+export function AdminShell({ data, children }: { data: AdminShellData; children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
@@ -96,9 +94,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </header>
       <aside className="fixed bottom-0 left-0 top-16 z-30 hidden w-64 border-r border-zinc-200 bg-stone-50 lg:block">
         <Link href="/admin" className={cn("mx-3 mt-4 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors", pathname === "/admin" ? "border-zinc-300 bg-white text-zinc-950" : "border-transparent text-zinc-600 hover:bg-white")}><Building2 className="size-4" /> Overview</Link>
-        <JudgeContext pathname={pathname} />
+        <JudgeContext data={data} pathname={pathname} />
       </aside>
-      {mobileOpen ? <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-zinc-950/30" onClick={() => setMobileOpen(false)} aria-label="Close navigation" /><aside className="absolute inset-y-0 left-0 w-[min(20rem,86vw)] overflow-y-auto bg-stone-50 shadow-xl"><div className="flex h-16 items-center justify-between border-b border-zinc-200 px-4"><div className="flex items-center gap-3"><Logo /><span className="text-sm font-semibold">VJIT SIH</span></div><button onClick={() => setMobileOpen(false)} className="flex size-8 items-center justify-center rounded-md border border-zinc-200"><X className="size-4" /></button></div><Link href="/admin" onClick={() => setMobileOpen(false)} className="mx-3 mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium"><Building2 className="size-4" /> Overview</Link><JudgeContext pathname={pathname} onNavigate={() => setMobileOpen(false)} /></aside></div> : null}
+      {mobileOpen ? <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-zinc-950/30" onClick={() => setMobileOpen(false)} aria-label="Close navigation" /><aside className="absolute inset-y-0 left-0 w-[min(20rem,86vw)] overflow-y-auto bg-stone-50 shadow-xl"><div className="flex h-16 items-center justify-between border-b border-zinc-200 px-4"><div className="flex items-center gap-3"><Logo /><span className="text-sm font-semibold">VJIT SIH</span></div><button onClick={() => setMobileOpen(false)} className="flex size-8 items-center justify-center rounded-md border border-zinc-200"><X className="size-4" /></button></div><Link href="/admin" onClick={() => setMobileOpen(false)} className="mx-3 mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium"><Building2 className="size-4" /> Overview</Link><JudgeContext data={data} pathname={pathname} onNavigate={() => setMobileOpen(false)} /></aside></div> : null}
       <main className="min-h-screen pt-16 lg:pl-64"><div className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">{children}</div></main>
     </div>
   );

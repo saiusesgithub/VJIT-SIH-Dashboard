@@ -1,9 +1,7 @@
 import { Radio } from "lucide-react";
 import Link from "next/link";
 import { Section } from "@/components/ui/section";
-import type { Review, ReviewRound, Team, Venue } from "@/types/domain";
-
-export interface ActiveReview { review: Review; team: Team; venue: Venue; round: ReviewRound }
+import type { ActiveReview } from "@/types/domain";
 
 export function CurrentlyReviewing({ items }: { items: ActiveReview[] }) {
   return (
