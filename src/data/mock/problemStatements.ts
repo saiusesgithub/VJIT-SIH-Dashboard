@@ -1,0 +1,16 @@
+import type { ProblemStatement } from "@/types/domain";
+
+export const problemStatements: ProblemStatement[] = [
+  { id: "ps001", code: "PS001", title: "AI-Based Traffic Management", description: "Develop an adaptive traffic management platform that uses live road conditions to optimize signal timing, reduce congestion, and provide actionable insights to city operators.", organization: "Ministry of Road Transport & Highways", theme: "Smart Automation" },
+  { id: "ps002", code: "PS002", title: "Rural Telemedicine Access", description: "Create an accessible telemedicine workflow for remote communities with intermittent connectivity and limited specialist availability.", organization: "Ministry of Health & Family Welfare", theme: "MedTech" },
+  { id: "ps003", code: "PS003", title: "Smart Water Quality Monitoring", description: "Design a low-cost system for continuous water quality monitoring and early anomaly detection across community water sources.", organization: "Ministry of Jal Shakti", theme: "Clean & Green Technology" },
+  { id: "ps004", code: "PS004", title: "Crop Disease Early Warning", description: "Build a field-ready crop disease detection and advisory solution for small and marginal farmers.", organization: "Ministry of Agriculture", theme: "Agriculture & Rural Development" },
+  { id: "ps005", code: "PS005", title: "Accessible Learning Companion", description: "Provide personalized, inclusive learning assistance for students with diverse accessibility needs.", organization: "Ministry of Education", theme: "Smart Education" },
+  { id: "ps006", code: "PS006", title: "Public Grievance Intelligence", description: "Categorize and route public grievances while identifying recurring service delivery issues.", organization: "Department of Administrative Reforms", theme: "Governance" },
+  { id: "ps007", code: "PS007", title: "Disaster Response Coordination", description: "Improve coordination of responders, resources, and verified field updates during disasters.", organization: "National Disaster Management Authority", theme: "Disaster Management" },
+  { id: "ps008", code: "PS008", title: "Urban Waste Traceability", description: "Track segregated waste from collection through processing to improve accountability and recovery rates.", organization: "Ministry of Housing & Urban Affairs", theme: "Clean & Green Technology" },
+  { id: "ps009", code: "PS009", title: "Multilingual Legal Aid", description: "Make preliminary legal guidance and document discovery accessible across Indian languages.", organization: "Department of Justice", theme: "Heritage & Culture" },
+  { id: "ps010", code: "PS010", title: "Women Safety Response Network", description: "Create a privacy-conscious rapid response network for safety incidents in public spaces.", organization: "Ministry of Women & Child Development", theme: "Smart Automation" },
+  { id: "ps011", code: "PS011", title: "Renewable Energy Forecasting", description: "Forecast distributed renewable generation to support stable local energy planning.", organization: "Ministry of New & Renewable Energy", theme: "Renewable Energy" },
+  { id: "ps012", code: "PS012", title: "Heritage Site Digital Twin", description: "Develop a lightweight digital twin approach for documenting and maintaining heritage sites.", organization: "Ministry of Culture", theme: "Heritage & Culture" },
+];
