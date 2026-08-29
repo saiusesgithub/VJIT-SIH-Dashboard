@@ -20,7 +20,30 @@ export async function authenticateTeamByAccessCode(rawCode: string) {
 }
 
 export const getTeamSessionData = cache(async (session: TeamSessionPayload) => {
-  return getDb().team.findFirst({ where: { id: session.teamId, accessCodeHash: { not: null } }, select: { id: true, teamCode: true, teamName: true } });
+  const team = await getDb().team.findFirst({
+    where: { id: session.teamId, accessCodeHash: { not: null } },
+    select: {
+      id: true, teamCode: true, teamName: true, hackathonId: true, venueId: true,
+      issues: { orderBy: { updatedAt: "desc" }, take: 1, select: { updatedAt: true } },
+      reviews: { orderBy: { updatedAt: "desc" }, take: 1, select: { updatedAt: true } },
+      hackathon: { select: { reviewRounds: { orderBy: { updatedAt: "desc" }, take: 1, select: { updatedAt: true } } } },
+    },
+  });
+  if (!team) return null;
+  const now = new Date();
+  const latestAnnouncement = await getDb().announcement.findFirst({
+    where: { hackathonId: team.hackathonId, publishedAt: { lte: now }, AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, { OR: [{ audience: AnnouncementAudience.ALL }, { audience: AnnouncementAudience.TEAMS }, { audience: AnnouncementAudience.VENUE, venueId: team.venueId }] }] },
+    orderBy: { updatedAt: "desc" }, select: { updatedAt: true },
+  });
+  const reviewDates = [team.reviews[0]?.updatedAt, team.hackathon.reviewRounds[0]?.updatedAt].filter((value): value is Date => Boolean(value));
+  return {
+    id: team.id, teamCode: team.teamCode, teamName: team.teamName,
+    notificationVersions: {
+      reviews: reviewDates.length ? new Date(Math.max(...reviewDates.map((date) => date.getTime()))).toISOString() : undefined,
+      updates: latestAnnouncement?.updatedAt.toISOString(),
+      issues: team.issues[0]?.updatedAt.toISOString(),
+    },
+  };
 });
 
 export const getTeamPortalData = cache(async (session: TeamSessionPayload) => {
@@ -51,6 +74,8 @@ export const getTeamPortalData = cache(async (session: TeamSessionPayload) => {
     return {
       id: round.id, number: round.roundNumber, name: round.name,
       status: (review ? statusMap[review.status] : "pending") as ReviewStatus,
+      startedAt: review?.startedAt?.toISOString(),
+      completedAt: review?.submittedAt?.toISOString(),
       feedbackVisible: round.feedbackVisibleToTeams,
       feedback: round.feedbackVisibleToTeams && review?.status === "COMPLETED" ? { remarks: review.generalRemarks ?? "", improvements: review.improvements ?? "", submittedAt: review.submittedAt?.toISOString() } : null,
     };

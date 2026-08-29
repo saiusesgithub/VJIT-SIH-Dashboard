@@ -9,5 +9,5 @@ export default async function ProtectedTeamLayout({ children }: { children: Reac
   const session = await requireTeamSession();
   const team = await getTeamSessionData(session);
   if (!team) redirect("/team/login");
-  return <TeamShell identity={{ code: team.teamCode, name: team.teamName }}>{children}</TeamShell>;
+  return <TeamShell identity={{ code: team.teamCode, name: team.teamName }} notificationVersions={team.notificationVersions}>{children}</TeamShell>;
 }

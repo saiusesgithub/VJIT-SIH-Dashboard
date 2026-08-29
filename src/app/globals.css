@@ -24,6 +24,20 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+button,
+a,
+input,
+textarea,
+select,
+summary {
+  transition-duration: 180ms;
+  transition-timing-function: ease;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
 ::selection {
   background: #dbeafe;
   color: #172554;
@@ -31,4 +45,23 @@ a {
 
 @media (prefers-reduced-motion: no-preference) {
   * { scroll-behavior: smooth; }
+
+  .app-enter {
+    animation: app-enter 220ms ease-out both;
+  }
+
+  .nav-pending {
+    animation: nav-load 900ms ease-in-out 100ms infinite;
+  }
+
+  @keyframes app-enter {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes nav-load {
+    0% { opacity: 0; transform: scaleX(0.15); }
+    35% { opacity: 1; }
+    100% { opacity: 0; transform: scaleX(1); }
+  }
 }
