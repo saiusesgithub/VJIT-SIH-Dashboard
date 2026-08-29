@@ -25,6 +25,40 @@ enum UserRole {
   TEAM
 }
 
+enum SubmissionType {
+  GITHUB
+  DEMO
+  PRESENTATION
+  PROTOTYPE
+  VIDEO
+  DOCUMENTATION
+  OTHER
+}
+
+enum AnnouncementAudience {
+  ALL
+  TEAMS
+  JUDGES
+  VENUE
+}
+
+enum IssueCategory {
+  REVIEW
+  VENUE
+  SCHEDULE
+  SUBMISSION
+  TECHNICAL
+  JUDGE
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
 model Hackathon {
   id                String             @id
   name              String
@@ -39,6 +73,7 @@ model Hackathon {
   problemStatements ProblemStatement[]
   teams             Team[]
   reviewRounds      ReviewRound[]
+  announcements     Announcement[]
 }
 
 model Venue {
@@ -55,6 +90,7 @@ model Venue {
   problemStatements ProblemStatement[]
   teams             Team[]
   judgeAssignments  VenueJudge[]
+  announcements     Announcement[]
 
   @@unique([hackathonId, code])
   @@unique([hackathonId, displayOrder])
@@ -119,6 +155,8 @@ model Team {
   problemStatementId String
   teamCode           String
   teamName           String
+  accessCodeHash     String?
+  accessCodeLookup   String?          @unique
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   hackathon          Hackathon        @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
@@ -126,6 +164,8 @@ model Team {
   problemStatement   ProblemStatement @relation(fields: [problemStatementId], references: [id], onDelete: Restrict)
   members            TeamMember[]
   reviews            Review[]
+  submissions        TeamSubmission[]
+  issues             TeamIssue[]
   userProfile        UserProfile?
 
   @@unique([hackathonId, teamCode])
@@ -153,21 +193,77 @@ model TeamMember {
 }
 
 model ReviewRound {
-  id           String    @id
-  hackathonId  String
-  roundNumber  Int
-  name         String
-  description  String?
-  displayOrder Int
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  hackathon    Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
-  rubrics      Rubric[]
-  reviews      Review[]
+  id                     String    @id
+  hackathonId            String
+  roundNumber            Int
+  name                   String
+  description            String?
+  displayOrder           Int
+  feedbackVisibleToTeams Boolean   @default(false)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  hackathon              Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  rubrics                Rubric[]
+  reviews                Review[]
 
   @@unique([hackathonId, roundNumber])
   @@unique([hackathonId, displayOrder])
   @@index([hackathonId])
+}
+
+model TeamSubmission {
+  id        String         @id
+  teamId    String
+  type      SubmissionType
+  url       String
+  label     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, type])
+  @@index([teamId])
+  @@index([type])
+}
+
+model Announcement {
+  id          String               @id
+  hackathonId String
+  title       String
+  message     String
+  audience    AnnouncementAudience
+  venueId     String?
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  hackathon   Hackathon            @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  venue       Venue?               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([hackathonId])
+  @@index([audience])
+  @@index([venueId])
+  @@index([publishedAt])
+  @@index([expiresAt])
+}
+
+model TeamIssue {
+  id            String        @id
+  teamId        String
+  category      IssueCategory
+  title         String
+  description   String
+  status        IssueStatus   @default(OPEN)
+  adminResponse String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  resolvedAt    DateTime?
+  team          Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
 }
 
 model Rubric {

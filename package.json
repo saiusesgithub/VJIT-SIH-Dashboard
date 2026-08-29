@@ -14,7 +14,10 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:seed:judge-pins": "tsx scripts/seed-judge-pins.ts",
+    "db:seed:team-codes": "tsx scripts/seed-team-access-codes.ts",
+    "db:seed:team-portal": "tsx scripts/seed-team-portal.ts",
     "db:verify": "tsx scripts/verify-neon.ts",
+    "db:verify:team-portal": "tsx scripts/verify-team-portal.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {

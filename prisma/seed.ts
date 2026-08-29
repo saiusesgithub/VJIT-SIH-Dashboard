@@ -1,9 +1,10 @@
 import "dotenv/config";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { hash } from "bcryptjs";
-import { PrismaClient, ReviewStatus } from "../src/generated/prisma/client";
+import { AnnouncementAudience, IssueCategory, IssueStatus, PrismaClient, ReviewStatus, SubmissionType } from "../src/generated/prisma/client";
 import { hackathon, judges, problemStatements, reviewRounds, reviews, rubrics, teams, venues } from "../src/data/mock/index";
 import { createJudgePinLookup, JUDGE_PIN_BCRYPT_COST } from "../src/lib/judge-pin-credential";
+import { createTeamAccessLookup, developmentTeamAccessCode, TEAM_ACCESS_BCRYPT_COST } from "../src/lib/team-access-credential";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 
@@ -31,6 +32,9 @@ async function seed() {
   // The mock event uses stable IDs. Remove its dependent rows in an explicit
   // order so RESTRICT relations remain safe, without touching other events.
   await prisma.$transaction([
+    prisma.teamIssue.deleteMany({ where: { team: { hackathonId: hackathon.id } } }),
+    prisma.teamSubmission.deleteMany({ where: { team: { hackathonId: hackathon.id } } }),
+    prisma.announcement.deleteMany({ where: { hackathonId: hackathon.id } }),
     prisma.reviewScore.deleteMany({ where: { review: { team: { hackathonId: hackathon.id } } } }),
     prisma.review.deleteMany({ where: { team: { hackathonId: hackathon.id } } }),
     prisma.teamMember.deleteMany({ where: { team: { hackathonId: hackathon.id } } }),
@@ -131,6 +135,7 @@ async function seed() {
         roundNumber: round.number,
         name: round.name,
         displayOrder: index + 1,
+        feedbackVisibleToTeams: round.number === 1,
       },
     });
 
@@ -151,6 +156,7 @@ async function seed() {
   }
 
   for (const team of teams) {
+    const accessCode = developmentTeamAccessCode(team.code);
     await prisma.team.create({
       data: {
         id: team.id,
@@ -159,6 +165,8 @@ async function seed() {
         problemStatementId: team.problemStatementId,
         teamCode: team.code,
         teamName: team.name,
+        accessCodeHash: await hash(accessCode, TEAM_ACCESS_BCRYPT_COST),
+        accessCodeLookup: createTeamAccessLookup(accessCode),
         members: {
           create: team.members.map((member) => ({
             id: member.id,
@@ -172,6 +180,26 @@ async function seed() {
       },
     });
   }
+
+  await prisma.teamSubmission.createMany({
+    data: teams.flatMap((team, index) => {
+      const rows: Array<{ id: string; teamId: string; type: SubmissionType; url: string }> = [{ id: `${team.id}-github`, teamId: team.id, type: SubmissionType.GITHUB, url: `https://github.com/vjit-sih/${team.code.toLowerCase()}` }];
+      if (index % 2 === 0) rows.push({ id: `${team.id}-presentation`, teamId: team.id, type: SubmissionType.PRESENTATION, url: `https://drive.google.com/example/${team.code.toLowerCase()}` });
+      if (index % 3 === 0) rows.push({ id: `${team.id}-demo`, teamId: team.id, type: SubmissionType.DEMO, url: `https://demo.example.com/${team.code.toLowerCase()}` });
+      return rows;
+    }),
+  });
+
+  await prisma.announcement.createMany({ data: [
+    { id: "announcement-review-2", hackathonId: hackathon.id, title: "Review 2 begins at 1:30 PM", message: "Keep your prototype and validation evidence ready before the review window begins.", audience: AnnouncementAudience.ALL, publishedAt: new Date("2026-08-21T12:30:00+05:30") },
+    { id: "announcement-lab-1", hackathonId: hackathon.id, venueId: "lab-1", title: "Lab 1 teams: remain ready", message: "Mentors will begin the next walkthrough from Team T001.", audience: AnnouncementAudience.VENUE, publishedAt: new Date("2026-08-21T12:45:00+05:30") },
+    { id: "announcement-judges", hackathonId: hackathon.id, title: "Judge coordination note", message: "Please submit each review before moving to the next team.", audience: AnnouncementAudience.JUDGES, publishedAt: new Date("2026-08-21T10:00:00+05:30") },
+  ] });
+
+  await prisma.teamIssue.createMany({ data: [
+    { id: "issue-team-001-review", teamId: "team-001", category: IssueCategory.REVIEW, title: "Review status not updated", description: "Our first review was completed but the portal still showed it in progress.", status: IssueStatus.IN_PROGRESS, adminResponse: "The review entry is being verified with the assigned judge.", createdAt: new Date("2026-08-21T11:42:00+05:30") },
+    { id: "issue-team-014-submission", teamId: "team-014", category: IssueCategory.SUBMISSION, title: "Presentation link not opening", description: "The presentation link was updated and needs verification.", status: IssueStatus.RESOLVED, adminResponse: "The updated link is accessible now.", createdAt: new Date("2026-08-21T10:30:00+05:30"), resolvedAt: new Date("2026-08-21T10:48:00+05:30") },
+  ] });
 
   for (const review of reviews) {
     const round = reviewRounds.find((candidate) => candidate.id === review.roundId);
