@@ -1,0 +1,10 @@
+import { type NextRequest, NextResponse } from "next/server";
+import { ADMIN_SESSION_COOKIE, isSameOriginRequest, verifyAdminSessionToken } from "@/lib/admin-auth";
+import { editAnnouncement } from "@/lib/repositories/operations-repository";
+
+export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request) || !(await verifyAdminSessionToken(request.cookies.get(ADMIN_SESSION_COOKIE)?.value))) return new Response("Forbidden", { status: 403 });
+  const form = await request.formData();
+  const ok = await editAnnouncement({ id: String(form.get("id") ?? ""), title: String(form.get("title") ?? ""), message: String(form.get("message") ?? ""), audience: String(form.get("audience") ?? ""), venueId: String(form.get("venueId") ?? "") || undefined, expiresAt: String(form.get("expiresAt") ?? "") || undefined });
+  return NextResponse.redirect(new URL(`/admin/announcements${ok ? "" : "?error=1"}`, request.url), 303);
+}

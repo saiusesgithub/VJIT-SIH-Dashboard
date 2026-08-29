@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight, Bell, MapPin } from "lucide-react";
+import { formatDateTime } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getJudgeDashboard } from "@/lib/repositories/judge-repository";
@@ -21,6 +22,8 @@ export default async function JudgeHomePage() {
         </div>
         <p className="mt-4 border-t border-zinc-100 pt-4 text-sm font-medium text-zinc-800">{data.identity.judgeName}</p><p className="mt-0.5 text-xs text-zinc-500">{data.identity.designation} · {data.identity.department}</p>
       </section>
+
+      {data.announcements.length ? <section aria-labelledby="judge-announcements"><h2 id="judge-announcements" className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900"><Bell className="size-4 text-zinc-500" /> Announcements</h2><div className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">{data.announcements.map((item) => <article key={item.id} className="p-4"><p className="text-sm font-semibold text-zinc-900">{item.title}</p><p className="mt-1 text-sm leading-6 text-zinc-600">{item.message}</p><p className="mt-2 text-[11px] text-zinc-400">{formatDateTime(item.publishedAt)}</p></article>)}</div></section> : null}
 
       <section aria-labelledby="round-progress-title"><h2 id="round-progress-title" className="mb-2 text-sm font-semibold text-zinc-900">Review progress</h2><div className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
         {data.rounds.map((round) => <div key={round.id} className="p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium text-zinc-900">Review {round.number}</p><p className="mt-0.5 text-xs text-zinc-500">{round.completed} / {round.total} completed{round.inProgress ? ` · ${round.inProgress} in progress` : ""}</p></div><span className="text-xs font-semibold tabular-nums text-zinc-600">{round.total ? Math.round(round.completed / round.total * 100) : 0}%</span></div><ProgressBar value={round.total ? round.completed / round.total * 100 : 0} className="mt-3" /></div>)}

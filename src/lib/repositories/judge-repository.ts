@@ -42,6 +42,7 @@ export interface JudgeDashboardData {
   problemRange: string;
   rounds: Array<{ id: string; number: number; name: string; completed: number; inProgress: number; total: number }>;
   teams: JudgeTeamSummary[];
+  announcements: Array<{ id: string; title: string; message: string; publishedAt: string }>;
 }
 
 export interface JudgeTeamData {
@@ -50,6 +51,7 @@ export interface JudgeTeamData {
   name: string;
   problem: { code: string; title: string; description: string; organization: string; theme: string };
   members: Array<{ id: string; name: string; department: string; year: number; role: string }>;
+  submissions: Array<{ id: string; type: string; label: string; url: string }>;
   rounds: Array<{ id: string; number: number; name: string; status: UiReviewStatus; submittedAt?: string }>;
 }
 
@@ -149,6 +151,17 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
       return { roundId: round.id, roundNumber: round.roundNumber, name: round.name, status: review ? statusMap[review.status] : "pending" as const };
     }),
   }));
+  const now = new Date();
+  const announcements = await getDb().announcement.findMany({
+    where: {
+      hackathonId: assignment.venue.hackathonId,
+      publishedAt: { lte: now },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      AND: [{ OR: [{ audience: "ALL" }, { audience: "JUDGES" }, { audience: "VENUE", venueId: assignment.venueId }] }],
+    },
+    orderBy: { publishedAt: "desc" },
+    select: { id: true, title: true, message: true, publishedAt: true },
+  });
   return {
     identity: mapIdentity(assignment),
     problemRange: statements.length ? `${statements[0].code}–${statements.at(-1)?.code}` : "No statements assigned",
@@ -164,6 +177,7 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
       };
     }),
     teams: summaries,
+    announcements: announcements.map((item) => ({ ...item, publishedAt: item.publishedAt!.toISOString() })),
   };
 }
 
@@ -175,6 +189,7 @@ export async function getJudgeTeamDetails(session: JudgeSessionPayload, teamId: 
       where: { venueId: session.venueId, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
       include: {
         members: { orderBy: { id: "asc" } },
+        submissions: { orderBy: { type: "asc" } },
         problemStatement: true,
         reviews: { include: { reviewRound: true }, orderBy: { reviewRound: { displayOrder: "asc" } } },
         hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } },
@@ -194,6 +209,7 @@ export async function getJudgeTeamDetails(session: JudgeSessionPayload, teamId: 
       theme: team.problemStatement.theme ?? team.problemStatement.category ?? "—",
     },
     members: team.members.map((member) => ({ id: member.id, name: member.name, department: member.department, year: member.year, role: member.role ?? "Member" })),
+    submissions: team.submissions.map((item) => ({ id: item.id, type: item.type, label: item.label ?? item.type, url: item.url })),
     rounds: team.hackathon.reviewRounds.map((round) => {
       const review = team.reviews.find((candidate) => candidate.reviewRoundId === round.id);
       return { id: round.id, number: round.roundNumber, name: round.name, status: review ? statusMap[review.status] : "pending" as const, submittedAt: review?.submittedAt?.toISOString() };

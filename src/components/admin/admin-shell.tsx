@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ChevronRight, LockKeyhole, Menu, RefreshCw, Scale, UserRound, X } from "lucide-react";
+import { Bell, Building2, ChevronRight, Eye, Link2, LockKeyhole, Menu, MessageSquareWarning, RefreshCw, Scale, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { rangeLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -77,6 +77,28 @@ function JudgeContext({ data, pathname, onNavigate }: { data: AdminShellData; pa
   );
 }
 
+const operationLinks = [
+  { href: "/admin/feedback", label: "Feedback release", icon: Eye },
+  { href: "/admin/submissions", label: "Submissions", icon: Link2 },
+  { href: "/admin/announcements", label: "Announcements", icon: Bell },
+  { href: "/admin/issues", label: "Team issues", icon: MessageSquareWarning },
+] as const;
+
+function OperationsNavigation({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  return (
+    <div className="border-b border-zinc-200 px-3 pb-4">
+      <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Operations</p>
+      <nav className="space-y-1" aria-label="Event operations">
+        {operationLinks.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} onClick={onNavigate} className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors", pathname.startsWith(href) ? "bg-white font-medium text-zinc-950" : "text-zinc-600 hover:bg-white hover:text-zinc-900")}>
+            <Icon className="size-4" /> {label}
+          </Link>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 export function AdminShell({ data, children }: { data: AdminShellData; children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -96,9 +118,10 @@ export function AdminShell({ data, children }: { data: AdminShellData; children:
       </header>
       <aside className="fixed bottom-0 left-0 top-16 z-30 hidden w-64 border-r border-zinc-200 bg-stone-50 lg:block">
         <Link href="/admin" className={cn("mx-3 mt-4 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors", pathname === "/admin" ? "border-zinc-300 bg-white text-zinc-950" : "border-transparent text-zinc-600 hover:bg-white")}><Building2 className="size-4" /> Overview</Link>
+        <OperationsNavigation pathname={pathname} />
         <JudgeContext data={data} pathname={pathname} />
       </aside>
-      {mobileOpen ? <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-zinc-950/30" onClick={() => setMobileOpen(false)} aria-label="Close navigation" /><aside className="absolute inset-y-0 left-0 w-[min(20rem,86vw)] overflow-y-auto bg-stone-50 shadow-xl"><div className="flex h-16 items-center justify-between border-b border-zinc-200 px-4"><div className="flex items-center gap-3"><Logo /><span className="text-sm font-semibold">VJIT SIH</span></div><button onClick={() => setMobileOpen(false)} className="flex size-8 items-center justify-center rounded-md border border-zinc-200"><X className="size-4" /></button></div><Link href="/admin" onClick={() => setMobileOpen(false)} className="mx-3 mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium"><Building2 className="size-4" /> Overview</Link><JudgeContext data={data} pathname={pathname} onNavigate={() => setMobileOpen(false)} /></aside></div> : null}
+      {mobileOpen ? <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-zinc-950/30" onClick={() => setMobileOpen(false)} aria-label="Close navigation" /><aside className="absolute inset-y-0 left-0 w-[min(20rem,86vw)] overflow-y-auto bg-stone-50 shadow-xl"><div className="flex h-16 items-center justify-between border-b border-zinc-200 px-4"><div className="flex items-center gap-3"><Logo /><span className="text-sm font-semibold">VJIT SIH</span></div><button onClick={() => setMobileOpen(false)} className="flex size-8 items-center justify-center rounded-md border border-zinc-200"><X className="size-4" /></button></div><Link href="/admin" onClick={() => setMobileOpen(false)} className="mx-3 mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium"><Building2 className="size-4" /> Overview</Link><OperationsNavigation pathname={pathname} onNavigate={() => setMobileOpen(false)} /><JudgeContext data={data} pathname={pathname} onNavigate={() => setMobileOpen(false)} /></aside></div> : null}
       <main className="min-h-screen pt-16 lg:pl-64"><div className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">{children}</div></main>
     </div>
   );
