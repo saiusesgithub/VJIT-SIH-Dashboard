@@ -1,4 +1,6 @@
 import { formatDateTime } from "@/lib/format";
+import { IssueStatusBadge } from "@/components/team/issue-status-badge";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getAdminIssues, IssueCategory, IssueStatus } from "@/lib/repositories/operations-repository";
 
 export default async function AdminIssuesPage({ searchParams }: { searchParams: Promise<{ status?: string; category?: string; venueId?: string }> }) {
@@ -13,9 +15,9 @@ export default async function AdminIssuesPage({ searchParams }: { searchParams: 
       <button className="h-10 rounded-lg bg-zinc-950 px-4 text-xs font-medium text-white sm:col-span-3">Apply filters</button>
     </form>
     <div className="space-y-3">{data.issues.map((issue) => <article key={issue.id} className="rounded-xl border border-zinc-200 bg-white p-4">
-      <div className="flex flex-wrap justify-between gap-3"><div><p className="text-sm font-semibold">{issue.title}</p><p className="mt-1 text-xs text-zinc-500">{issue.team.teamCode} · {issue.team.venue.name} · {issue.category} · Open for {issue.ageMinutes} min</p></div><span className="text-xs font-semibold text-zinc-500">{issue.status.replace("_", " ")}</span></div>
+      <div className="flex flex-wrap justify-between gap-3"><div><p className="text-sm font-semibold">{issue.title}</p><p className="mt-1 text-xs text-zinc-500">{issue.team.teamCode} · {issue.team.venue.name} · {issue.category} · Open for {issue.ageMinutes} min</p></div><IssueStatusBadge status={issue.status} /></div>
       <p className="mt-3 text-sm leading-6 text-zinc-600">{issue.description}</p>
-      <form action="/admin/issues/update" method="post" className="mt-4 grid gap-3 border-t border-zinc-100 pt-4 sm:grid-cols-[160px_1fr_auto]"><input type="hidden" name="id" value={issue.id} /><select name="status" defaultValue={issue.status} className="h-10 rounded-lg border border-zinc-300 px-3 text-sm">{Object.values(IssueStatus).map((status) => <option key={status}>{status}</option>)}</select><input name="response" defaultValue={issue.adminResponse ?? ""} maxLength={3000} placeholder="Faculty response" className="h-10 rounded-lg border border-zinc-300 px-3 text-sm" /><button className="h-10 rounded-lg bg-zinc-950 px-4 text-xs font-medium text-white">Update</button></form>
+      <form action="/admin/issues/update" method="post" className="mt-4 grid gap-3 border-t border-zinc-100 pt-4 sm:grid-cols-[160px_1fr_auto]"><input type="hidden" name="id" value={issue.id} /><select name="status" defaultValue={issue.status} className="h-10 rounded-lg border border-zinc-300 px-3 text-sm">{Object.values(IssueStatus).map((status) => <option key={status}>{status}</option>)}</select><input name="response" defaultValue={issue.adminResponse ?? ""} maxLength={3000} placeholder="Faculty response" className="h-10 rounded-lg border border-zinc-300 px-3 text-sm" /><PendingSubmitButton pendingLabel="Updating…" className="h-10 rounded-lg bg-zinc-950 px-4 text-xs font-medium text-white">Update</PendingSubmitButton></form>
       <p className="mt-2 text-xs text-zinc-400">Submitted {formatDateTime(issue.createdAt.toISOString())}</p>
     </article>)}{data.issues.length === 0 ? <p className="rounded-xl border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500">No issues match these filters.</p> : null}</div>
   </div>;
