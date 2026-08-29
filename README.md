@@ -14,6 +14,11 @@ Judge server components / review route handlers
   → judge repository and authorization service
   → Prisma transaction
   → Neon PostgreSQL
+
+Team server components / scoped write handlers
+  → team repository and signed team session
+  → Prisma Client
+  → Neon PostgreSQL
 ```
 
 React components do not query Prisma directly. The files in `src/data/mock` are retained only as deterministic source data for `prisma/seed.ts`; normal application rendering does not import them.
@@ -33,6 +38,7 @@ DIRECT_URL=""
 ADMIN_PIN="your-shared-faculty-pin"
 ADMIN_SESSION_SECRET="a-random-secret-with-at-least-32-characters"
 JUDGE_PIN_LOOKUP_SECRET="another-random-secret-with-at-least-32-characters"
+TEAM_ACCESS_LOOKUP_SECRET="a-third-random-secret-with-at-least-32-characters"
 ```
 
 `DATABASE_URL` is used only by the server-side application through `@prisma/adapter-neon`. `DATABASE_URL_UNPOOLED` is used by Prisma CLI for migrations and seed operations; `DIRECT_URL` is supported as an optional alias. Never expose database or admin secrets with a `NEXT_PUBLIC_` prefix.
@@ -44,7 +50,7 @@ openssl rand -hex 32
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-`ADMIN_PIN` is the shared faculty PIN. `ADMIN_SESSION_SECRET` signs the 12-hour HTTP-only session cookie and must contain at least 32 characters. `JUDGE_PIN_LOOKUP_SECRET` creates the keyed judge-PIN lookup and should stay identical for every deployment that accesses the same database. It falls back to `ADMIN_SESSION_SECRET` for existing environments, but a separate production value is recommended. Changing either secret requires rerunning the judge PIN seed; changing the session secret also immediately invalidates active sessions.
+`ADMIN_PIN` is the shared faculty PIN. `ADMIN_SESSION_SECRET` signs the HTTP-only admin, judge, and team session cookies and must contain at least 32 characters. `JUDGE_PIN_LOOKUP_SECRET` and `TEAM_ACCESS_LOOKUP_SECRET` create keyed credential lookups and should stay identical for every deployment that accesses the same database. Each has a documented fallback for existing environments, but separate production values are recommended. Changing a lookup secret requires reseeding its matching lookup values; changing the session secret also immediately invalidates active sessions.
 
 The same `ADMIN_SESSION_SECRET` signs a separately scoped 12-hour judge cookie. Judge identities and venue IDs come from the signed cookie and are verified against the database on every protected data operation; raw judge PINs never enter a cookie or database row.
 
@@ -56,6 +62,8 @@ npm run db:generate
 npm run db:migrate
 npm run db:seed
 npm run db:seed:judge-pins
+npm run db:seed:team-codes
+npm run db:seed:team-portal
 npm run dev
 ```
 
@@ -72,6 +80,8 @@ For development only, the deterministic judge PINs are:
 
 No raw PIN is stored. Each assignment keeps a bcrypt cost-10 hash plus a keyed HMAC lookup derived with `JUDGE_PIN_LOOKUP_SECRET` (or the documented fallback). The lookup identifies one assignment without running bcrypt against every judge, then bcrypt verifies the submitted PIN. `npm run db:seed:judge-pins` safely updates both values for the four existing assignments without resetting hackathon or review data. If the lookup secret changes, rerun this command so the stored values match it. Replace the development credentials before a real event; never reuse them in production.
 
+For development, team access codes are deterministic: `T001` uses `DEV-T001`, continuing through `DEV-T048`. The database stores only bcrypt hashes and keyed HMAC lookups; the signed cookie contains only the internal team ID, expiry, scope, and a nonce. `npm run db:seed:team-codes` updates only team credentials without resetting reviews, submissions, or issues. These predictable values are development-only. Before the event, coordinators can provision random 8–12 character codes through the same hash/lookup helpers and distribute the raw values out of band; raw codes should never be committed or retained in PostgreSQL.
+
 ## Database commands
 
 ```bash
@@ -80,13 +90,16 @@ npm run db:migrate   # Create/apply development migrations
 npm run db:deploy    # Apply committed migrations in CI/production
 npm run db:seed      # Deterministically seed the internal hackathon
 npm run db:seed:judge-pins # Update only development assignment PIN hashes
+npm run db:seed:team-codes # Update only deterministic development team-code hashes
+npm run db:seed:team-portal # Non-destructively upsert team portal development fixtures
 npm run db:verify    # Verify Neon connectivity and dashboard row counts
+npm run db:verify:team-portal # Verify team credentials, fixtures, and review totals
 npm run db:studio    # Open Prisma Studio
 ```
 
 ## Vercel deployment
 
-1. Add `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, `ADMIN_SESSION_SECRET`, and `JUDGE_PIN_LOOKUP_SECRET` in **Project Settings → Environment Variables** for the required Preview and Production environments.
+1. Add `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, `ADMIN_SESSION_SECRET`, `JUDGE_PIN_LOOKUP_SECRET`, and `TEAM_ACCESS_LOOKUP_SECRET` in **Project Settings → Environment Variables** for the required Preview and Production environments.
 2. Use Neon's pooled connection for `DATABASE_URL` and direct connection for `DATABASE_URL_UNPOOLED`.
 3. Keep the Vercel Function region aligned with the Neon region. This repository's Neon database is in AWS `ap-southeast-1`, so `vercel.json` pins Vercel Functions to Singapore (`sin1`) and enables Fluid compute.
 4. Before deploying an application version with schema changes, run `npm run db:deploy` from a trusted local or CI environment with the production `DATABASE_URL_UNPOOLED` configured.
@@ -106,6 +119,12 @@ Do not run `prisma migrate dev` against the production database. Do not seed pro
 - `/judge` — assigned venue progress and teams
 - `/judge/teams/[teamId]` — authorized team and review-round overview
 - `/judge/teams/[teamId]/reviews/[roundId]` — data-driven scoring form or locked submitted review
+- `/team/login` — public team access-code entry
+- `/team` — authenticated team status and event summary
+- `/team/reviews` — review states and faculty-released feedback (never scores)
+- `/team/submissions` — project-link management
+- `/team/announcements` — active team/venue/event notices
+- `/team/issues` — team-scoped support issues and faculty responses
 
 Unknown venue and team IDs return the existing not-found experience. Database failures render a generic admin error state without exposing connection details.
 
@@ -123,7 +142,7 @@ Opening an editable review marks it `IN_PROGRESS` once. Final submission validat
 
 While editing, the browser stores a local draft scoped to judge, team, and round. Failed submissions keep the draft, successful submissions remove it, and signing out intentionally leaves drafts on the device.
 
-The manifest and service worker make the judge interface installable where supported. The service worker caches only static assets, icons, and the manifest. Navigation, team/review data, submission endpoints, and admin analytics are never runtime-cached, so PostgreSQL remains the source of truth.
+The manifests and service worker make both judge and team interfaces installable where supported. The service worker caches only static assets, icons, and manifests. Navigation, authenticated team/review data, write endpoints, and admin analytics are never runtime-cached, so PostgreSQL remains the source of truth. Team logout clears the cookie and browser HTTP cache while intentionally preserving no sensitive runtime response cache.
 
 For Vercel, configure `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, and `ADMIN_SESSION_SECRET` in every target environment. Apply `npm run db:deploy`, then run either the intentional full seed for a fresh development environment or provision real judge PIN hashes separately. Do not run the development PIN seed in production.
 
