@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight, LockKeyhole, Trophy } from "lucide-react";
 import { getFacultyLeaderboard } from "@/lib/repositories/leaderboard-repository";
+import { ShortlistingControl } from "@/components/admin/shortlisting-control";
+import { decisionLabels } from "@/lib/shortlisting";
 
 export const metadata: Metadata = { title: "Faculty leaderboard", robots: { index: false, follow: false } };
 const marks = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
@@ -13,7 +15,8 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const problems = [...new Map(data.entries.map((row) => [row.problem.id, row.problem])).values()].sort((a, b) => a.code.localeCompare(b.code));
   const venueId = typeof params.venue === "string" && venues.some((venue) => venue.id === params.venue) ? params.venue : "";
   const problemId = typeof params.problem === "string" && problems.some((problem) => problem.id === params.problem) ? params.problem : "";
-  const entries = data.entries.filter((row) => (!venueId || row.venue.id === venueId) && (!problemId || row.problem.id === problemId));
+  const decision = typeof params.decision === "string" && (params.decision === "UNDECIDED" || Object.hasOwn(decisionLabels, params.decision)) ? params.decision : "";
+  const entries = data.entries.filter((row) => (!venueId || row.venue.id === venueId) && (!problemId || row.problem.id === problemId) && (!decision || (decision === "UNDECIDED" ? row.shortlisting.decision === null : row.shortlisting.decision === decision)));
   const fullyEvaluated = data.entries.filter((row) => data.roundCount > 0 && row.completedReviews === data.roundCount).length;
 
   return (
@@ -34,11 +37,12 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         <p>Ranked by the sum of marks from completed reviews only. Pending and in-progress reviews add no marks. Equal totals share a rank (1, 1, 3); teams without a completed review are unranked. All {data.roundCount} rounds contribute their rubric marks without extra weighting.</p>
       </section>
 
-      <form action="/admin/leaderboard" method="get" className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:flex-row sm:items-end">
+      <form action="/admin/leaderboard" method="get" className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="flex-1 text-xs font-medium text-zinc-600">Venue<select name="venue" defaultValue={venueId} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All venues</option>{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name} · {venue.room}</option>)}</select></label>
         <label className="flex-1 text-xs font-medium text-zinc-600">Problem statement<select name="problem" defaultValue={problemId} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All problem statements</option>{problems.map((problem) => <option key={problem.id} value={problem.id}>{problem.code} · {problem.title}</option>)}</select></label>
+        <label className="text-xs font-medium text-zinc-600">Final decision<select name="decision" defaultValue={decision} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All decisions</option><option value="UNDECIDED">Not decided</option>{Object.entries(decisionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <button className="h-10 rounded-lg bg-zinc-950 px-4 text-xs font-semibold text-white transition-colors hover:bg-zinc-800">Apply filters</button>
-        {venueId || problemId ? <Link href="/admin/leaderboard" className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-200 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50">Clear</Link> : null}
+        {venueId || problemId || decision ? <Link href="/admin/leaderboard" className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-200 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50">Clear</Link> : null}
       </form>
 
       <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
@@ -47,7 +51,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
           <table className="w-full min-w-[1000px] text-left text-xs">
             <caption className="sr-only">Private faculty standings. Overall rank compares all teams; venue rank compares teams in the same physical venue; problem rank compares teams assigned the same problem statement.</caption>
             <thead className="border-b border-zinc-200 bg-zinc-50 text-[11px] text-zinc-500"><tr>
-              <th scope="col" className="px-4 py-3">Overall rank</th><th scope="col" className="px-4 py-3">Team</th><th scope="col" className="px-4 py-3">Problem statement</th><th scope="col" className="px-4 py-3">Venue</th><th scope="col" className="px-4 py-3 text-right">Total marks</th><th scope="col" className="px-4 py-3">Reviews</th><th scope="col" className="px-4 py-3 text-center">Venue rank</th><th scope="col" className="px-4 py-3 text-center">PS rank</th>
+              <th scope="col" className="px-4 py-3">Overall rank</th><th scope="col" className="px-4 py-3">Team</th><th scope="col" className="px-4 py-3">Problem statement</th><th scope="col" className="px-4 py-3">Venue</th><th scope="col" className="px-4 py-3 text-right">Total marks</th><th scope="col" className="px-4 py-3">Reviews</th><th scope="col" className="px-4 py-3 text-center">Venue rank</th><th scope="col" className="px-4 py-3 text-center">PS rank</th><th scope="col" className="px-4 py-3">Final decision · after Review 3</th>
             </tr></thead>
             <tbody className="divide-y divide-zinc-100">{entries.map((row) => <tr key={row.id} className="transition-colors hover:bg-zinc-50/70">
               <td className="px-4 py-4 text-sm font-semibold tabular-nums text-zinc-800">{row.overallRank ? `#${row.overallRank}` : <span className="text-xs font-normal text-zinc-400">Unranked</span>}</td>
@@ -58,6 +62,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
               <td className="px-4 py-4"><p className="font-medium tabular-nums text-zinc-700">{row.completedReviews} / {data.roundCount}</p><p className={`mt-1 whitespace-nowrap text-[11px] ${row.completedReviews === data.roundCount && data.roundCount > 0 ? "text-emerald-700" : row.completedReviews ? "text-amber-700" : "text-zinc-400"}`}>{row.completedReviews === data.roundCount && data.roundCount > 0 ? "Complete" : row.completedReviews ? "Provisional" : "Awaiting review"}</p></td>
               <td className="px-4 py-4 text-center font-medium tabular-nums text-zinc-600">{row.venueRank ? `#${row.venueRank}` : "—"}</td>
               <td className="px-4 py-4 text-center font-medium tabular-nums text-zinc-600">{row.problemRank ? `#${row.problemRank}` : "—"}</td>
+              <td className="px-4 py-4"><ShortlistingControl key={`${row.id}-${row.shortlisting.revision}`} teamId={row.id} teamCode={row.code} state={row.shortlisting} /></td>
             </tr>)}</tbody>
           </table>
         </div>

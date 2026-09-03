@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-auth";
 import { getDb } from "@/lib/db";
 import { calculateLeaderboard } from "@/lib/leaderboard";
+import { hasCompletedReviewThree } from "@/lib/shortlisting";
 
 export async function getFacultyLeaderboard() {
   // Authorize before any score query: layouts and pages may render in parallel.
@@ -21,11 +22,12 @@ export async function getFacultyLeaderboard() {
       where: { hackathonId: event.id },
       select: {
         id: true, teamCode: true, teamName: true,
+        finalDecision: true, decisionRevision: true, decisionUpdatedAt: true,
         venue: { select: { id: true, name: true, roomNumber: true } },
         problemStatement: { select: { id: true, code: true, title: true } },
         reviews: {
           where: { status: "COMPLETED", reviewRound: { hackathonId: event.id } },
-          select: { status: true, scores: { select: { score: true } } },
+          select: { status: true, reviewRound: { select: { roundNumber: true } }, scores: { select: { score: true } } },
         },
       },
     }),
@@ -41,6 +43,11 @@ export async function getFacultyLeaderboard() {
       venue: { id: team.venue.id, name: team.venue.name, room: team.venue.roomNumber },
       problem: team.problemStatement,
       reviews: team.reviews.map((review) => ({ status: review.status, scores: review.scores.map((score) => score.score.toNumber()) })),
-    }))),
+    }))).map((entry) => {
+      const team = teams.find((team) => team.id === entry.id)!;
+      return { ...entry, shortlisting: { decision: team.finalDecision, revision: team.decisionRevision,
+        updatedAt: team.decisionUpdatedAt?.toISOString() ?? null,
+        eligible: hasCompletedReviewThree(team.reviews.map((review) => ({ status: review.status, roundNumber: review.reviewRound.roundNumber }))) } };
+    }),
   };
 }
