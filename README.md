@@ -39,6 +39,7 @@ ADMIN_PIN="your-shared-faculty-pin"
 ADMIN_SESSION_SECRET="a-random-secret-with-at-least-32-characters"
 JUDGE_PIN_LOOKUP_SECRET="another-random-secret-with-at-least-32-characters"
 TEAM_ACCESS_LOOKUP_SECRET="a-third-random-secret-with-at-least-32-characters"
+TEAM_ACCESS_ENCRYPTION_SECRET="a-fourth-random-secret-with-at-least-32-characters"
 ```
 
 `DATABASE_URL` is used only by the server-side application through `@prisma/adapter-neon`. `DATABASE_URL_UNPOOLED` is used by Prisma CLI for migrations and seed operations; `DIRECT_URL` is supported as an optional alias. Never expose database or admin secrets with a `NEXT_PUBLIC_` prefix.
@@ -50,7 +51,7 @@ openssl rand -hex 32
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-`ADMIN_PIN` is the shared faculty PIN. `ADMIN_SESSION_SECRET` signs the HTTP-only admin, judge, and team session cookies and must contain at least 32 characters. `JUDGE_PIN_LOOKUP_SECRET` and `TEAM_ACCESS_LOOKUP_SECRET` create keyed credential lookups and should stay identical for every deployment that accesses the same database. Each has a documented fallback for existing environments, but separate production values are recommended. Changing a lookup secret requires reseeding its matching lookup values; changing the session secret also immediately invalidates active sessions.
+`ADMIN_PIN` is the shared faculty PIN. `ADMIN_SESSION_SECRET` signs the HTTP-only admin, judge, and team session cookies and must contain at least 32 characters. `JUDGE_PIN_LOOKUP_SECRET` and `TEAM_ACCESS_LOOKUP_SECRET` create keyed credential lookups and should stay identical for every deployment that accesses the same database. `TEAM_ACCESS_ENCRYPTION_SECRET` encrypts the recoverable team code shown on authenticated faculty team-detail pages. Each has a documented fallback for existing environments, but separate production values are recommended. Changing a lookup secret requires reseeding its matching lookup values; changing the encryption secret requires reseeding team codes; changing the session secret immediately invalidates active sessions.
 
 The same `ADMIN_SESSION_SECRET` signs a separately scoped 12-hour judge cookie. Judge identities and venue IDs come from the signed cookie and are verified against the database on every protected data operation; raw judge PINs never enter a cookie or database row.
 
@@ -80,7 +81,7 @@ For development only, the deterministic judge PINs are:
 
 No raw PIN is stored. Each assignment keeps a bcrypt cost-10 hash plus a keyed HMAC lookup derived with `JUDGE_PIN_LOOKUP_SECRET` (or the documented fallback). The lookup identifies one assignment without running bcrypt against every judge, then bcrypt verifies the submitted PIN. `npm run db:seed:judge-pins` safely updates both values for the four existing assignments without resetting hackathon or review data. If the lookup secret changes, rerun this command so the stored values match it. Replace the development credentials before a real event; never reuse them in production.
 
-For development, team access codes are deterministic: `T001` uses `DEV-T001`, continuing through `DEV-T048`. The database stores only bcrypt hashes and keyed HMAC lookups; the signed cookie contains only the internal team ID, expiry, scope, and a nonce. `npm run db:seed:team-codes` updates only team credentials without resetting reviews, submissions, or issues. These predictable values are development-only. Before the event, coordinators can provision random 8–12 character codes through the same hash/lookup helpers and distribute the raw values out of band; raw codes should never be committed or retained in PostgreSQL.
+For development, team access codes are deterministic: `T001` uses `DEV-T001`, continuing through `DEV-T048`. Login uses a bcrypt hash plus a keyed HMAC lookup. A separate AES-256-GCM ciphertext lets authenticated faculty recover a missed code from the admin team page; plaintext codes are not retained in PostgreSQL. The signed team cookie contains only the internal team ID, expiry, scope, and a nonce. `npm run db:seed:team-codes` updates only team credentials without resetting reviews, submissions, or issues. These predictable values are development-only. Before the event, coordinators should provision random 8–12 character codes through the same helpers and never commit them.
 
 ## Database commands
 
@@ -142,9 +143,11 @@ Opening an editable review marks it `IN_PROGRESS` once. Final submission validat
 
 While editing, the browser stores a local draft scoped to judge, team, and round. Failed submissions keep the draft, successful submissions remove it, and signing out intentionally leaves drafts on the device.
 
-The manifests and service worker make both judge and team interfaces installable where supported. The service worker caches only static assets, icons, and manifests. Navigation, authenticated team/review data, write endpoints, and admin analytics are never runtime-cached, so PostgreSQL remains the source of truth. Team logout clears the cookie and browser HTTP cache while intentionally preserving no sensitive runtime response cache.
+The manifests and service worker make both judge and team interfaces installable where supported. On eligible Chromium browsers, each interface presents its own install sheet and opens the browser installation prompt after the user taps **Install app**. On iPhone/iPad, the sheet explains Safari's **Share → Add to Home Screen** flow. Dismissing a sheet hides it for seven days for that interface, and installed apps do not show it. Browser security does not permit silent installation without a user gesture.
 
-For Vercel, configure `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, and `ADMIN_SESSION_SECRET` in every target environment. Apply `npm run db:deploy`, then run either the intentional full seed for a fresh development environment or provision real judge PIN hashes separately. Do not run the development PIN seed in production.
+The service worker caches only static assets, icons, and manifests. Navigation, authenticated team/review data, write endpoints, and admin analytics are never runtime-cached, so PostgreSQL remains the source of truth. Team logout clears the cookie and browser HTTP cache while intentionally preserving no sensitive runtime response cache.
+
+For Vercel, configure `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, `ADMIN_SESSION_SECRET`, `JUDGE_PIN_LOOKUP_SECRET`, `TEAM_ACCESS_LOOKUP_SECRET`, and `TEAM_ACCESS_ENCRYPTION_SECRET` in every target environment. Apply `npm run db:deploy`, then run either the intentional full seed for a fresh development environment or provision real judge/team credentials separately. After deploying this migration to an existing development database, run `npm run db:seed:team-codes` once to populate encrypted recovery values. Do not run development credential seeds in production.
 
 ## Validation
 
