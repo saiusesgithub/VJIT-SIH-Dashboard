@@ -151,6 +151,16 @@ For Vercel, configure `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, `ADM
 
 ## Validation
 
+### Faculty-only leaderboard
+
+Open `/admin/leaderboard` from the admin sidebar. Only an admin-scoped session can query or render these standings; judge and team cookies cannot grant access. Existing faculty sessions issued before the explicit admin scope was introduced must sign in again once. No schema migration or new environment variables are needed for the leaderboard.
+
+Ranks use the sum of marks from **completed reviews only**, with no additional round weighting. Pending/in-progress reviews add no points; teams with no completed review are unranked. Equal totals use competition ranking (1, 1, 3). Venue ranks use the team's physical venue, and problem-statement ranks use its assigned problem statement. Filters never recalculate those ranks. Completion counts identify provisional results while reviews are unfinished. Scores are read afresh on page requests/refresh, not stored as duplicate analytics or exposed through judge/team endpoints. The existing static-only PWA cache does not cache standings.
+
+Run `npm run test:leaderboard` for ranking edge cases and cross-role session rejection tests.
+
+For read-only HTTP checks, run `npm run build`, start `npm run start -- --port 3100` in one terminal, and run `npx tsx scripts/verify-leaderboard-route.ts` in another. This verifies HTML/RSC access denial for unauthenticated, judge, and team sessions (including cookies renamed to the admin cookie), faculty rendering, a venue filter, and private/no-store responses using the local `.env`. It does not modify database rows.
+
 ```bash
 npm run lint
 npm run typecheck
