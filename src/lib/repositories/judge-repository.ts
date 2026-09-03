@@ -49,6 +49,7 @@ export interface JudgeTeamData {
   id: string;
   code: string;
   name: string;
+  venue: { name: string; room: string };
   problem: { code: string; title: string; description: string; organization: string; theme: string };
   members: Array<{ id: string; name: string; department: string; year: number; role: string }>;
   submissions: Array<{ id: string; type: string; label: string; url: string }>;
@@ -201,6 +202,7 @@ export async function getJudgeTeamDetails(session: JudgeSessionPayload, teamId: 
     id: team.id,
     code: team.teamCode,
     name: team.teamName,
+    venue: { name: assignment.venue.name, room: assignment.venue.roomNumber },
     problem: {
       code: team.problemStatement.code,
       title: team.problemStatement.title,
