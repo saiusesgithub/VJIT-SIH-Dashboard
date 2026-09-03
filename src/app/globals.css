@@ -54,6 +54,10 @@ summary::-webkit-details-marker {
     animation: nav-load 900ms ease-in-out 100ms infinite;
   }
 
+  .install-prompt {
+    animation: install-prompt-in 180ms ease-out both;
+  }
+
   @keyframes app-enter {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
@@ -63,5 +67,10 @@ summary::-webkit-details-marker {
     0% { opacity: 0; transform: scaleX(0.15); }
     35% { opacity: 1; }
     100% { opacity: 0; transform: scaleX(1); }
+  }
+
+  @keyframes install-prompt-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
