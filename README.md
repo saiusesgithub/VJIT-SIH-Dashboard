@@ -116,6 +116,7 @@ Do not run `prisma migrate dev` against the production database. Do not seed pro
 - `/admin` — event analytics and live review activity
 - `/admin/venues/[venueId]` — venue progress and assigned teams
 - `/admin/teams/[teamId]` — team information, members, rubrics, scores, and feedback
+- `/admin/qr-cards` — faculty-only printable team desk cards, filterable by venue or team
 - `/judge/login` — public judge/mentor PIN entry
 - `/judge` — assigned venue progress and teams
 - `/judge/teams/[teamId]` — authorized team and review-round overview
@@ -150,6 +151,18 @@ The service worker caches only static assets, icons, and manifests. Navigation, 
 For Vercel, configure `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, `ADMIN_SESSION_SECRET`, `JUDGE_PIN_LOOKUP_SECRET`, `TEAM_ACCESS_LOOKUP_SECRET`, and `TEAM_ACCESS_ENCRYPTION_SECRET` in every target environment. Apply `npm run db:deploy`, then run either the intentional full seed for a fresh development environment or provision real judge/team credentials separately. After deploying this migration to an existing development database, run `npm run db:seed:team-codes` once to populate encrypted recovery values. Do not run development credential seeds in production.
 
 ## Validation
+
+### Team QR desk cards
+
+Set `APP_URL` to the **permanent public HTTPS origin** of the event app in `.env` and Vercel, for example `https://your-event-domain.vercel.app`, and redeploy. Do not include a path, query, credentials, or a preview deployment hostname. No database migration or seed is required. Missing/invalid configuration disables QR generation; localhost is allowed for preview only and disables the print button.
+
+Faculty can open **Admin → Team QR cards** (`/admin/qr-cards`), select all teams, a venue, or one team, and use **Print / Save PDF**. Cards contain team code/name, assigned venue/room, problem statement, and a QR code for `/judge/teams/<stable-internal-team-id>`. There are four cards per A4 sheet. Use 100% print scale and disable browser headers/footers. Test-scan a printed card with a phone before distributing a full batch. Reprint venue labels if a team moves rooms; the URL continues to resolve using its current assignment.
+
+The QR is a navigation link, **not a credential**: no access code, PIN, token, scores, or decision is embedded. QR images are generated locally on the server, not by an external QR service. Judges sign in if necessary and return to the scanned team. Existing server-side venue checks deny other venues. The team-confirmation screen shows venue, problem statement, and the in-progress review (otherwise the next pending round). Scanning only opens that screen; a judge must explicitly open a review to start it. All-completed teams stay read-only. Phone camera scanning is sufficient; there is no new in-app camera permission or scanner dependency.
+
+Run `npm run test:qr` for actual QR decoding, destination validation, login return paths, and review-selection tests. The QR encoder uses the [node-qrcode API](https://github.com/soldair/node-qrcode#readme) with black-on-white PNGs and a four-module quiet zone. Verify HTTPS, the final domain, print quality, and camera scanning on real event phones before printing.
+
+For read-only integration verification, build and start the app with `npm run start -- --port 3100`, then run `npx tsx scripts/verify-team-qr.ts` in another terminal using the same database, session environment, and `APP_URL`. It decodes every rendered QR, checks venue/single-team filters, verifies faculty-only access and judge venue restrictions, checks the login return destination, and compares review records before/after scans. It needs existing teams in two venues and an active judge assignment; it does not write database rows.
 
 ### Faculty shortlisting and problem statement analytics
 
