@@ -10,6 +10,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:leaderboard": "tsx --test scripts/test-leaderboard.ts scripts/test-admin-session.ts",
+    "test:faculty": "tsx --test scripts/test-admin-session.ts scripts/test-leaderboard.ts scripts/test-faculty-results.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

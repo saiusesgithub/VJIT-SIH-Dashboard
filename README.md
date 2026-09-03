@@ -151,6 +151,17 @@ For Vercel, configure `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ADMIN_PIN`, `ADM
 
 ## Validation
 
+### Faculty shortlisting and problem statement analytics
+
+- Faculty can assign **SHORTLISTED**, **HOLD**, or **ELIMINATED** from the leaderboard or an admin team-detail page after that team's **Review 3 is COMPLETED**. The server enforces eligibility; opening the form is not enough. Decisions start unset and do not change marks or ranks. They are private to faculty, not published to teams or judges.
+- Decisions require confirmation and record the latest update timestamp. Faculty can revise them. Optimistic revision checks prevent a stale browser tab overwriting a newer decision; retries of the same decision are idempotent. This is a shared-faculty-PIN workflow, so individual faculty attribution is not available.
+- `/admin/problem-statements` shows every PS, participating teams, average/highest/lowest scores, sample size, and per-round completion/active/pending counts. Overall statistics use only teams with **every round completed**. Select a round to compare completed scores for just that round. Empty samples display `—`, not zero. Counts are derived from review rows; no duplicate analytics are stored.
+- Small samples, team ability, and different judges affect comparisons. These are descriptive statistics, not a definitive ranking of problem difficulty.
+
+Apply the additive migration before deploying this version: `npm run db:deploy`, then `npm run db:generate`. Existing decisions remain unset. **Do not reseed** an ongoing event; no seed or new environment variable is required. Run `npm run test:faculty` for ranking, analytics, eligibility, input validation, and cross-role session tests.
+
+For integration tests, build and start the app on port 3100 using a **development database**, then run `npx tsx scripts/verify-faculty-results.ts` with the same `.env`. It checks faculty-only pages/writes, CSRF rejection, Review 3 gating, persistence, retries and conflicting submissions. It creates one isolated temporary test event and removes that event in `finally`; it never modifies real team decisions. Do not run this fixture-writing test against an event's production database.
+
 ### Faculty-only leaderboard
 
 Open `/admin/leaderboard` from the admin sidebar. Only an admin-scoped session can query or render these standings; judge and team cookies cannot grant access. Existing faculty sessions issued before the explicit admin scope was introduced must sign in again once. No schema migration or new environment variables are needed for the leaderboard.
