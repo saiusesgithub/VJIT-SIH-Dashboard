@@ -5,6 +5,7 @@ import { AnnouncementAudience, IssueCategory, IssueStatus, PrismaClient, ReviewS
 import { hackathon, judges, problemStatements, reviewRounds, reviews, rubrics, teams, venues } from "../src/data/mock/index";
 import { createJudgePinLookup, JUDGE_PIN_BCRYPT_COST } from "../src/lib/judge-pin-credential";
 import { createTeamAccessLookup, developmentTeamAccessCode, TEAM_ACCESS_BCRYPT_COST } from "../src/lib/team-access-credential";
+import { encryptTeamAccessCode } from "../src/lib/team-access-encryption";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 
@@ -167,6 +168,7 @@ async function seed() {
         teamName: team.name,
         accessCodeHash: await hash(accessCode, TEAM_ACCESS_BCRYPT_COST),
         accessCodeLookup: createTeamAccessLookup(accessCode),
+        accessCodeEncrypted: encryptTeamAccessCode(accessCode),
         members: {
           create: team.members.map((member) => ({
             id: member.id,

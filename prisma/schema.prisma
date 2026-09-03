@@ -157,6 +157,7 @@ model Team {
   teamName           String
   accessCodeHash     String?
   accessCodeLookup   String?          @unique
+  accessCodeEncrypted String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   hackathon          Hackathon        @relation(fields: [hackathonId], references: [id], onDelete: Cascade)

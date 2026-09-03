@@ -3,6 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { hash } from "bcryptjs";
 import { AnnouncementAudience, IssueCategory, IssueStatus, PrismaClient, SubmissionType } from "../src/generated/prisma/client";
 import { createTeamAccessLookup, developmentTeamAccessCode, TEAM_ACCESS_BCRYPT_COST } from "../src/lib/team-access-credential";
+import { encryptTeamAccessCode } from "../src/lib/team-access-encryption";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 if (!connectionString) throw new Error("Set DATABASE_URL_UNPOOLED, DIRECT_URL, or DATABASE_URL before seeding the team portal.");
@@ -16,7 +17,7 @@ async function main() {
 
   for (const [index, team] of teams.entries()) {
     const code = developmentTeamAccessCode(team.teamCode);
-    await prisma.team.update({ where: { id: team.id }, data: { accessCodeHash: await hash(code, TEAM_ACCESS_BCRYPT_COST), accessCodeLookup: createTeamAccessLookup(code) } });
+    await prisma.team.update({ where: { id: team.id }, data: { accessCodeHash: await hash(code, TEAM_ACCESS_BCRYPT_COST), accessCodeLookup: createTeamAccessLookup(code), accessCodeEncrypted: encryptTeamAccessCode(code) } });
     const links: Array<{ type: SubmissionType; url: string }> = [{ type: SubmissionType.GITHUB, url: `https://github.com/vjit-sih/${team.teamCode.toLowerCase()}` }];
     if (index % 2 === 0) links.push({ type: SubmissionType.PRESENTATION, url: `https://drive.google.com/example/${team.teamCode.toLowerCase()}` });
     if (index % 3 === 0) links.push({ type: SubmissionType.DEMO, url: `https://demo.example.com/${team.teamCode.toLowerCase()}` });
