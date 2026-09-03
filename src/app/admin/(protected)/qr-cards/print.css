@@ -1,0 +1,20 @@
+.team-qr-sheet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.team-qr-card { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px; border: 1px dashed #a1a1aa; border-radius: 10px; background: white; break-inside: avoid; }
+.team-qr-image { width: 200px; height: 200px; max-width: 100%; object-fit: contain; margin: 12px 0; }
+@media (max-width: 639px) { .team-qr-sheet { grid-template-columns: 1fr; } }
+
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  body:has([data-team-qr-print]) { background: white !important; }
+  body:has([data-team-qr-print]) [data-admin-shell] { min-height: 0 !important; background: white !important; }
+  body:has([data-team-qr-print]) [data-admin-chrome], .qr-screen-only { display: none !important; }
+  body:has([data-team-qr-print]) [data-admin-main] { min-height: 0 !important; padding: 0 !important; }
+  body:has([data-team-qr-print]) [data-admin-main] > div { max-width: none !important; padding: 0 !important; }
+  [data-team-qr-print], .qr-print-content { margin: 0 !important; }
+  .team-qr-sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, 125mm); gap: 6mm; margin: 0 !important; break-after: page; break-inside: avoid; }
+  .team-qr-sheet:last-child { break-after: auto; }
+  .team-qr-card { height: 125mm; padding: 5mm; border-radius: 0; break-inside: avoid; }
+  .team-qr-card h2 { font-size: 14px; line-height: 18px; }
+  .team-qr-card > p:nth-of-type(2) { font-size: 26px; line-height: 30px; margin-top: 6px; }
+  .team-qr-image { flex-shrink: 0; width: 45mm; height: 45mm; margin: 3mm 0; }
+}

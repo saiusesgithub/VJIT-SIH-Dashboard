@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Building2, ChartColumn, ChevronRight, Eye, Link2, LockKeyhole, Menu, MessageSquareWarning, RefreshCw, Scale, Trophy, UserRound, X } from "lucide-react";
+import { Bell, Building2, ChartColumn, ChevronRight, Eye, Link2, LockKeyhole, Menu, MessageSquareWarning, QrCode, RefreshCw, Scale, Trophy, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { rangeLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -78,6 +78,7 @@ function JudgeContext({ data, pathname, onNavigate }: { data: AdminShellData; pa
 }
 
 const operationLinks = [
+  { href: "/admin/qr-cards", label: "Team QR cards", icon: QrCode },
   { href: "/admin/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/admin/problem-statements", label: "PS analytics", icon: ChartColumn },
   { href: "/admin/feedback", label: "Feedback release", icon: Eye },
@@ -105,8 +106,8 @@ export function AdminShell({ data, children }: { data: AdminShellData; children:
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center border-b border-zinc-200 bg-white px-4 lg:px-6">
+    <div data-admin-shell className="min-h-screen bg-stone-50">
+      <header data-admin-chrome className="fixed inset-x-0 top-0 z-40 flex h-16 items-center border-b border-zinc-200 bg-white px-4 lg:px-6">
         <button className="mr-3 inline-flex size-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open venue navigation"><Menu className="size-4" /></button>
         <Link href="/admin" className="flex min-w-0 items-center gap-3"><Logo /><div className="min-w-0"><p className="truncate text-sm font-semibold tracking-tight text-zinc-950">VJIT SIH Internal Hackathon</p><p className="text-[11px] text-zinc-500">Evaluation Dashboard</p></div></Link>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
@@ -118,13 +119,15 @@ export function AdminShell({ data, children }: { data: AdminShellData; children:
           </form>
         </div>
       </header>
-      <aside className="fixed bottom-0 left-0 top-16 z-30 hidden w-64 border-r border-zinc-200 bg-stone-50 lg:block">
+      <aside data-admin-chrome className="fixed bottom-0 left-0 top-16 z-30 hidden w-64 overflow-y-auto border-r border-zinc-200 bg-stone-50 lg:block">
         <Link href="/admin" className={cn("mx-3 mt-4 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors", pathname === "/admin" ? "border-zinc-300 bg-white text-zinc-950" : "border-transparent text-zinc-600 hover:bg-white")}><Building2 className="size-4" /> Overview</Link>
         <OperationsNavigation pathname={pathname} />
         <JudgeContext data={data} pathname={pathname} />
       </aside>
+      <div data-admin-chrome>
       {mobileOpen ? <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-zinc-950/30" onClick={() => setMobileOpen(false)} aria-label="Close navigation" /><aside className="absolute inset-y-0 left-0 w-[min(20rem,86vw)] overflow-y-auto bg-stone-50 shadow-xl"><div className="flex h-16 items-center justify-between border-b border-zinc-200 px-4"><div className="flex items-center gap-3"><Logo /><span className="text-sm font-semibold">VJIT SIH</span></div><button onClick={() => setMobileOpen(false)} className="flex size-8 items-center justify-center rounded-md border border-zinc-200"><X className="size-4" /></button></div><Link href="/admin" onClick={() => setMobileOpen(false)} className="mx-3 mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium"><Building2 className="size-4" /> Overview</Link><OperationsNavigation pathname={pathname} onNavigate={() => setMobileOpen(false)} /><JudgeContext data={data} pathname={pathname} onNavigate={() => setMobileOpen(false)} /></aside></div> : null}
-      <main className="min-h-screen pt-16 lg:pl-64"><div className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">{children}</div></main>
+      </div>
+      <main data-admin-main className="min-h-screen pt-16 lg:pl-64"><div className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">{children}</div></main>
     </div>
   );
 }
