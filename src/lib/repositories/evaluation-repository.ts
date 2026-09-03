@@ -11,6 +11,7 @@ import type {
 } from "@/generated/prisma/client";
 import { ReviewStatus as DbReviewStatus } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
+import { decryptTeamAccessCode } from "@/lib/team-access-encryption";
 import type {
   ActiveReview,
   AdminShellData,
@@ -479,6 +480,7 @@ export const evaluationRepository: EvaluationRepository = {
     const primaryJudge = record.venue.judgeAssignments[0]?.judge ? mapJudge(record.venue.judgeAssignments[0].judge, venue.id) : unassignedJudge(venue.id);
     return {
       team: mapTeam(record),
+      accessCode: decryptTeamAccessCode(record.accessCodeEncrypted),
       venue,
       problemStatement: mapProblemStatement(record.problemStatement),
       judge: primaryJudge,

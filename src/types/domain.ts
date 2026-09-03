@@ -171,6 +171,7 @@ export interface TeamReviewDetail {
 
 export interface TeamPageData {
   team: Team;
+  accessCode: string | null;
   venue: Venue;
   problemStatement: ProblemStatement;
   judge: Judge;
