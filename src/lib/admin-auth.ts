@@ -6,6 +6,7 @@ export const ADMIN_SESSION_COOKIE = "sih_admin_session";
 export const ADMIN_SESSION_DURATION_SECONDS = 12 * 60 * 60;
 
 interface SessionPayload {
+  scope: "admin";
   expiresAt: number;
   nonce: string;
 }
@@ -40,6 +41,7 @@ export async function createAdminSessionToken() {
   if (!secret) throw new Error("Admin session configuration is unavailable.");
 
   const payload: SessionPayload = {
+    scope: "admin",
     expiresAt: Date.now() + ADMIN_SESSION_DURATION_SECONDS * 1000,
     nonce: crypto.randomUUID(),
   };
@@ -51,7 +53,7 @@ export async function verifyAdminSessionToken(token?: string) {
   if (!secret || !token) return false;
 
   const payload = await verifySignedToken<Partial<SessionPayload>>(token, secret);
-  return typeof payload?.expiresAt === "number" && payload.expiresAt > Date.now() && typeof payload.nonce === "string";
+  return payload?.scope === "admin" && typeof payload.expiresAt === "number" && payload.expiresAt > Date.now() && typeof payload.nonce === "string";
 }
 
 export function adminSessionCookieOptions(expires: Date) {
