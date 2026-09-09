@@ -55,6 +55,7 @@ async function main() {
   const html = await response.text();
   const images = [...html.matchAll(/<img\b[^>]*data-team-qr-image[^>]*>/g)];
   assert.equal(images.length, teams.length, "Every selected team needs one QR");
+  assert.equal((html.match(/<section\b[^>]*data-team-qr-sheet/g) ?? []).length, Math.ceil(teams.length / 9), "Print layout must use nine cards per sheet");
   const decodedUrls: string[] = [];
   for (const image of images) {
     const encoded = image[0].match(/src="data:image\/png;base64,([^"]+)"/);
@@ -105,13 +106,18 @@ async function main() {
       denied = await get(`${target.pathname}${target.search}`, judgeCookie, true);
     }
     const body = await denied.text();
-    // Next can stream a not-found response after headers were sent.
-    assert.ok(denied.status === 404 || body.includes("NEXT_HTTP_ERROR_FALLBACK;404"), "Off-venue team must be not-found");
+    const redirectSignal = `${denied.headers.get("location") ?? ""} ${denied.headers.get("x-nextjs-redirect") ?? ""} ${body}`;
+    assert.match(redirectSignal, /\/judge\?scanError=wrong-venue/, "Off-venue team must return to the scanner with a useful warning");
     assert.ok(!body.includes(otherTeam.teamCode), "Off-venue team information must not leak");
   }
+  const wrongVenuePage = await get("/judge?scanError=wrong-venue", judgeCookie);
+  assert.equal(wrongVenuePage.status, 200);
+  const wrongVenueHtml = await wrongVenuePage.text();
+  assert.ok(wrongVenueHtml.includes("That team belongs to a different venue") && wrongVenueHtml.includes("Scan a team QR"));
+  assert.ok(!wrongVenueHtml.includes(otherTeam.teamCode), "Venue warning must not leak the other team");
   stage = "review immutability";
   assert.deepEqual(await snapshot(), before, "Scanning / GET requests must not mutate reviews");
-  console.info(`PASS: ${images.length} decoded QR cards, filters, faculty-only HTML/RSC access, judge login destination, venue authorization, and unchanged review records. No database writes performed.`);
+  console.info(`PASS: ${images.length} decoded QR cards across ${Math.ceil(images.length / 9)} nine-card sheets, filters, faculty-only HTML/RSC access, judge login destination, friendly venue denial, and unchanged review records. No database writes performed.`);
 }
 
 main().catch((error: unknown) => {
