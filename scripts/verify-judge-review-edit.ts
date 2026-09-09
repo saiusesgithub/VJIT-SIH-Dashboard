@@ -21,7 +21,7 @@ async function main() {
       if (fixture) break;
     }
     assert.ok(fixture, "Seed at least one completed review owned by an active judge assignment");
-    const token = await createJudgeSessionToken(fixture);
+    const token = await createJudgeSessionToken({ ...fixture, role: "external" });
     const headers = { Cookie: `${JUDGE_SESSION_COOKIE}=${token}` };
     const path = `/judge/teams/${fixture.teamId}/reviews/${fixture.roundId}`;
     const readOnly = await fetch(`${baseUrl}${path}`, { headers });

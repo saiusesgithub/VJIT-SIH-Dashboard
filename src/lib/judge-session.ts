@@ -8,6 +8,7 @@ export interface JudgeSessionPayload {
   assignmentId: string;
   judgeId: string;
   venueId: string;
+  role: "external" | "internal";
   expiresAt: number;
   nonce: string;
 }
@@ -17,7 +18,7 @@ function sessionSecret() {
   return secret && secret.length >= 32 ? secret : null;
 }
 
-export async function createJudgeSessionToken(identity: Pick<JudgeSessionPayload, "assignmentId" | "judgeId" | "venueId">) {
+export async function createJudgeSessionToken(identity: Pick<JudgeSessionPayload, "assignmentId" | "judgeId" | "venueId" | "role">) {
   const secret = sessionSecret();
   if (!secret) throw new Error("Judge session configuration is unavailable.");
   return createSignedToken({
@@ -25,6 +26,7 @@ export async function createJudgeSessionToken(identity: Pick<JudgeSessionPayload
     assignmentId: identity.assignmentId,
     judgeId: identity.judgeId,
     venueId: identity.venueId,
+    role: identity.role,
     expiresAt: Date.now() + JUDGE_SESSION_DURATION_SECONDS * 1000,
     nonce: crypto.randomUUID(),
   } satisfies JudgeSessionPayload, secret);
@@ -37,6 +39,7 @@ export async function verifyJudgeSessionToken(token?: string) {
     typeof payload.assignmentId !== "string" ||
     typeof payload.judgeId !== "string" ||
     typeof payload.venueId !== "string" ||
+    (payload.role !== "external" && payload.role !== "internal") ||
     typeof payload.expiresAt !== "number" ||
     payload.expiresAt <= Date.now() ||
     typeof payload.nonce !== "string"

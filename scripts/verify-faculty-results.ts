@@ -21,7 +21,7 @@ async function main() {
   const adminToken = await createAdminSessionToken();
   const headers = { Cookie: `${ADMIN_SESSION_COOKIE}=${adminToken}`, Origin: base, "Content-Type": "application/json" };
   const post = (decision: string, revision: number) => fetch(`${base}/admin/shortlisting`, { method: "POST", headers, body: JSON.stringify({ teamId, decision, revision }), redirect: "manual" });
-  for (const token of [undefined, await createTeamSessionToken("test"), await createJudgeSessionToken({ judgeId: "test", assignmentId: "test", venueId: "test" })]) {
+  for (const token of [undefined, await createTeamSessionToken("test"), await createJudgeSessionToken({ judgeId: "test", assignmentId: "test", venueId: "test", role: "external" })]) {
     for (const rsc of [false, true]) {
       const response = await fetch(`${base}/admin/problem-statements`, { redirect: "manual", headers: { Cookie: token ? `${ADMIN_SESSION_COOKIE}=${token}` : "", ...(rsc ? { RSC: "1" } : {}) } });
       assert.equal(response.status, 307);

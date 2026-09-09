@@ -4,7 +4,8 @@ import { cache } from "react";
 import { Prisma, ReviewStatus } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
 import { createJudgePinLookup, DUMMY_JUDGE_PIN_HASH } from "@/lib/judge-pin-credential";
-import { canJudgeEditCompletedReview, canJudgeWriteReview } from "@/lib/judge-review-authorization";
+import { normalizeJudgePhone } from "@/lib/judge-credentials";
+import { canJudgeEditCompletedReview, canJudgeWriteReview, type JudgeReviewAuthContext } from "@/lib/judge-review-authorization";
 import type { JudgeSessionPayload } from "@/lib/judge-session";
 import type { ReviewStatus as UiReviewStatus } from "@/types/domain";
 
@@ -120,6 +121,45 @@ export async function authenticateJudgeByPin(pin: string): Promise<JudgeIdentity
   });
   const matches = await compare(pin, assignment?.pinHash ?? DUMMY_JUDGE_PIN_HASH);
   return assignment && matches ? mapIdentity(assignment) : null;
+}
+
+export async function authenticateJudgeByPhonePassword(phone: string, password: string): Promise<JudgeIdentity | null> {
+  if (!phone || !password || phone.length > 20 || password.length > 128) return null;
+
+  const normalizedPhone = normalizeJudgePhone(phone);
+
+  // Find judge by phone with any active venue assignment
+  const judge = await getDb().judge.findFirst({
+    where: {
+      phone: normalizedPhone,
+      passwordHash: { not: null },
+    },
+    include: {
+      venueAssignments: {
+        where: { pinHash: { not: null } }, // Only active assignments with PIN
+        include: { venue: assignmentInclude.venue },
+        orderBy: [{ isPrimary: "desc" }, { venue: { displayOrder: "asc" } }],
+        take: 1, // Phone/password login opens the judge's primary assignment.
+      },
+    },
+  });
+
+  const matches = await compare(password, judge?.passwordHash ?? DUMMY_JUDGE_PIN_HASH);
+  if (!judge || !judge.passwordHash || judge.venueAssignments.length === 0 || !matches) return null;
+
+  // Use the first active venue assignment
+  const assignment = judge.venueAssignments[0];
+  return {
+    assignmentId: assignment.id,
+    judgeId: judge.id,
+    venueId: assignment.venueId,
+    judgeName: judge.name,
+    designation: judge.designation,
+    department: judge.department,
+    venueName: assignment.venue.name,
+    roomNumber: assignment.venue.roomNumber,
+    role: assignment.role.toLowerCase() as JudgeIdentity["role"],
+  };
 }
 
 export async function getJudgeSessionData(session: JudgeSessionPayload) {
@@ -272,7 +312,7 @@ export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId
     getDb().team.findFirst({
       where: { venueId: session.venueId, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
       include: {
-        reviews: { include: { scores: true } },
+        reviews: { include: { scores: true, completedByJudge: { include: { venueAssignments: { where: { venueId: session.venueId } } } } } },
         hackathon: {
           include: {
             reviewRounds: {
@@ -288,6 +328,16 @@ export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId
   const round = team.hackathon.reviewRounds.find((candidate) => candidate.id === roundId);
   if (!round) return null;
   const review = team.reviews.find((candidate) => candidate.reviewRoundId === round.id);
+
+  // Build auth context for permission check
+  const authContext: JudgeReviewAuthContext = {
+    reviewJudgeId: review?.judgeId ?? null,
+    reviewCompletedByJudgeId: review?.completedByJudgeId ?? null,
+    sessionJudgeId: session.judgeId,
+    sessionJudgeRole: session.role,
+    reviewCompletedByRole: review?.completedByJudge?.venueAssignments[0]?.role.toLowerCase() as "external" | "internal" | undefined,
+  };
+
   return {
     team: { id: team.id, code: team.teamCode, name: team.teamName },
     round: { id: round.id, number: round.roundNumber, name: round.name },
@@ -300,8 +350,8 @@ export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId
       improvements: review?.improvements ?? "",
       scores: Object.fromEntries((review?.scores ?? []).map((score) => [score.rubricId, score.score.toNumber()])),
       canEdit: review?.status === ReviewStatus.COMPLETED
-        ? canJudgeEditCompletedReview(review.judgeId, session.judgeId)
-        : canJudgeWriteReview(review?.judgeId, session.judgeId),
+        ? canJudgeEditCompletedReview(authContext)
+        : canJudgeWriteReview(authContext),
     },
     rubrics: round.rubrics.map((rubric) => ({ id: rubric.id, name: rubric.name, description: rubric.description ?? undefined, maxMarks: rubric.maxMarks.toNumber() })),
   };
@@ -320,7 +370,16 @@ export async function startReview(session: JudgeSessionPayload, teamId: string, 
       create: { id: `review-${teamId}-${roundId}`, teamId, reviewRoundId: roundId, judgeId: session.judgeId, status: ReviewStatus.IN_PROGRESS, startedAt: new Date() },
       update: {},
     });
-    if (!canJudgeWriteReview(review.judgeId, session.judgeId)) return null;
+
+    // Build auth context for permission check
+    const authContext: JudgeReviewAuthContext = {
+      reviewJudgeId: review.judgeId,
+      reviewCompletedByJudgeId: review.completedByJudgeId,
+      sessionJudgeId: session.judgeId,
+      sessionJudgeRole: session.role,
+    };
+
+    if (!canJudgeWriteReview(authContext)) return null;
     if (review.status === ReviewStatus.PENDING) {
       return tx.review.update({ where: { id: review.id }, data: { status: ReviewStatus.IN_PROGRESS, startedAt: review.startedAt ?? new Date(), judgeId: session.judgeId } });
     }
@@ -346,10 +405,16 @@ export async function submitReview(session: JudgeSessionPayload, teamId: string,
   }
   return getDb().$transaction(async (tx) => {
     const [assignment, team] = await Promise.all([
-      tx.venueJudge.findFirst({ where: { id: session.assignmentId, judgeId: session.judgeId, venueId: session.venueId, pinHash: { not: null } }, select: { id: true } }),
+      tx.venueJudge.findFirst({
+        where: { id: session.assignmentId, judgeId: session.judgeId, venueId: session.venueId, pinHash: { not: null } },
+        select: { id: true, role: true }
+      }),
       tx.team.findFirst({ where: { id: teamId, venueId: session.venueId }, select: { id: true, hackathonId: true } }),
     ]);
     if (!assignment || !team) return { ok: false as const, code: "not_found" as const };
+
+    const sessionJudgeRole = assignment.role.toLowerCase() as "external" | "internal";
+
     const round = await tx.reviewRound.findFirst({ where: { id: roundId, hackathonId: team.hackathonId }, include: { rubrics: true } });
     if (!round) return { ok: false as const, code: "not_found" as const };
     const unique = new Map(submission.scores.map((score) => [score.rubricId, score.score]));
@@ -362,12 +427,34 @@ export async function submitReview(session: JudgeSessionPayload, teamId: string,
       where: { teamId_reviewRoundId: { teamId, reviewRoundId: roundId } },
       create: { id: `review-${teamId}-${roundId}`, teamId, reviewRoundId: roundId, judgeId: session.judgeId, status: ReviewStatus.IN_PROGRESS, startedAt: new Date() },
       update: {},
-      include: { scores: true },
+      include: {
+        scores: true,
+        completedByJudge: {
+          include: {
+            venueAssignments: {
+              where: { venueId: session.venueId },
+              select: { role: true },
+              take: 1,
+            },
+          },
+        },
+      },
     });
+
+    const reviewCompletedByRole = review.completedByJudge?.venueAssignments[0]?.role.toLowerCase() as "external" | "internal" | undefined;
     const editingCompleted = review.status === ReviewStatus.COMPLETED;
+
+    const authContext = {
+      reviewJudgeId: review.judgeId,
+      reviewCompletedByJudgeId: review.completedByJudgeId,
+      sessionJudgeId: session.judgeId,
+      sessionJudgeRole,
+      reviewCompletedByRole,
+    };
+
     if (editingCompleted
-      ? !canJudgeEditCompletedReview(review.judgeId, session.judgeId)
-      : !canJudgeWriteReview(review.judgeId, session.judgeId)) {
+      ? !canJudgeEditCompletedReview(authContext)
+      : !canJudgeWriteReview(authContext)) {
       return { ok: false as const, code: "not_owner" as const };
     }
     if (review.status === ReviewStatus.COMPLETED) {
@@ -395,6 +482,7 @@ export async function submitReview(session: JudgeSessionPayload, teamId: string,
       data: {
         status: ReviewStatus.COMPLETED,
         judgeId: session.judgeId,
+        completedByJudgeId: session.judgeId, // Track who actually completed this review
         submittedAt: review.submittedAt ?? new Date(),
         generalRemarks: submission.remarks.trim() || null,
         improvements: submission.improvements.trim() || null,

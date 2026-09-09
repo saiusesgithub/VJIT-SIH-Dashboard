@@ -11,7 +11,7 @@ test("admin authorization rejects judge, team, legacy, expired and tampered sess
   try {
     const admin = await createAdminSessionToken();
     assert.equal(await verifyAdminSessionToken(admin), true);
-    assert.equal(await verifyAdminSessionToken(await createJudgeSessionToken({ assignmentId: "assignment", judgeId: "judge", venueId: "venue" })), false);
+    assert.equal(await verifyAdminSessionToken(await createJudgeSessionToken({ assignmentId: "assignment", judgeId: "judge", venueId: "venue", role: "external" })), false);
     assert.equal(await verifyAdminSessionToken(await createTeamSessionToken("team")), false);
     assert.equal(await verifyAdminSessionToken(await createSignedToken({ expiresAt: Date.now() + 10000, nonce: "old" }, process.env.ADMIN_SESSION_SECRET)), false);
     assert.equal(await verifyAdminSessionToken(await createSignedToken({ scope: "admin", expiresAt: Date.now() - 1, nonce: "expired" }, process.env.ADMIN_SESSION_SECRET)), false);

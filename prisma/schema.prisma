@@ -113,17 +113,21 @@ model Venue {
 }
 
 model Judge {
-  id               String       @id
-  name             String
-  designation      String
-  department       String
-  email            String?
-  phone            String?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  venueAssignments VenueJudge[]
-  reviews          Review[]
-  userProfile      UserProfile?
+  id                    String       @id
+  name                  String
+  designation           String
+  department            String
+  email                 String?
+  phone                 String?
+  passwordHash          String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  venueAssignments      VenueJudge[]
+  reviews               Review[]
+  reviewsCompleted      Review[]     @relation("ReviewCompletedBy")
+  userProfile           UserProfile?
+
+  @@index([phone])
 }
 
 model VenueJudge {
@@ -316,25 +320,28 @@ model Rubric {
 }
 
 model Review {
-  id             String        @id
-  teamId         String
-  reviewRoundId  String
-  judgeId        String?
-  status         ReviewStatus  @default(PENDING)
-  startedAt      DateTime?
-  submittedAt    DateTime?
-  generalRemarks String?
-  improvements   String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  team           Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  reviewRound    ReviewRound   @relation(fields: [reviewRoundId], references: [id], onDelete: Cascade)
-  judge          Judge?        @relation(fields: [judgeId], references: [id], onDelete: SetNull)
-  scores         ReviewScore[]
+  id                  String        @id
+  teamId              String
+  reviewRoundId       String
+  judgeId             String?
+  completedByJudgeId  String?
+  status              ReviewStatus  @default(PENDING)
+  startedAt           DateTime?
+  submittedAt         DateTime?
+  generalRemarks      String?
+  improvements        String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  team                Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  reviewRound         ReviewRound   @relation(fields: [reviewRoundId], references: [id], onDelete: Cascade)
+  judge               Judge?        @relation(fields: [judgeId], references: [id], onDelete: SetNull, map: "Review_judgeId_fkey")
+  completedByJudge    Judge?        @relation("ReviewCompletedBy", fields: [completedByJudgeId], references: [id], onDelete: SetNull)
+  scores              ReviewScore[]
 
   @@unique([teamId, reviewRoundId])
   @@index([reviewRoundId, status])
   @@index([judgeId])
+  @@index([completedByJudgeId])
   @@index([startedAt])
 }
 

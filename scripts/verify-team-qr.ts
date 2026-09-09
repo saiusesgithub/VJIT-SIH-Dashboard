@@ -31,7 +31,7 @@ async function main() {
   const before = await snapshot();
   stage = "faculty access checks";
   const adminCookie = `${ADMIN_SESSION_COOKIE}=${await createAdminSessionToken()}`;
-  const judgeToken = await createJudgeSessionToken({ assignmentId: assignment.id, judgeId: assignment.judgeId, venueId: assignment.venueId });
+  const judgeToken = await createJudgeSessionToken({ assignmentId: assignment.id, judgeId: assignment.judgeId, venueId: assignment.venueId, role: "external" });
   const judgeCookie = `${JUDGE_SESSION_COOKIE}=${judgeToken}`;
   const teamToken = await createTeamSessionToken(ownTeam.id);
   const get = (path: string, cookie = "", rsc = false) => fetch(`${baseUrl}${path}`, {

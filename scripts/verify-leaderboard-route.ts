@@ -9,7 +9,7 @@ import { createTeamSessionToken, TEAM_SESSION_COOKIE } from "../src/lib/team-ses
 const baseUrl = "http://localhost:3100";
 
 async function main() {
-  const judge = await createJudgeSessionToken({ assignmentId: "test", judgeId: "test", venueId: "test" });
+  const judge = await createJudgeSessionToken({ assignmentId: "test", judgeId: "test", venueId: "test", role: "external" });
   const team = await createTeamSessionToken("test");
   for (const cookie of ["", `${JUDGE_SESSION_COOKIE}=${judge}`, `${TEAM_SESSION_COOKIE}=${team}`, `${ADMIN_SESSION_COOKIE}=${judge}`, `${ADMIN_SESSION_COOKIE}=${team}`]) {
     for (const path of ["/admin/leaderboard", "/admin/leaderboard/export?scope=ranked&limit=10"]) {

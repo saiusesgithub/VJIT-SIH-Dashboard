@@ -189,6 +189,7 @@ export interface TeamReviewDetail {
   round: ReviewRound;
   rubric: Rubric;
   judge: Judge;
+  completedByJudge: Judge | null;
 }
 
 export interface TeamPageData {

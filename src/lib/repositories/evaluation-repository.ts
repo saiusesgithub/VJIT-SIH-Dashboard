@@ -485,7 +485,12 @@ export const evaluationRepository: EvaluationRepository = {
         problemStatement: true,
         venue: { include: venueInclude },
         reviews: {
-          include: { scores: true, judge: true, reviewRound: { include: { rubrics: { orderBy: { displayOrder: "asc" } } } } },
+          include: {
+            scores: true,
+            judge: true,
+            completedByJudge: { include: { venueAssignments: true } },
+            reviewRound: { include: { rubrics: { orderBy: { displayOrder: "asc" } } } },
+          },
           orderBy: { reviewRound: { displayOrder: "asc" } },
         },
       },
@@ -506,11 +511,13 @@ export const evaluationRepository: EvaluationRepository = {
           name: `${round.name} Rubric`,
           criteria: reviewRecord.reviewRound.rubrics.map((criterion) => ({ id: criterion.id, label: criterion.name, maxScore: criterion.maxMarks.toNumber() })),
         };
+        const completedByJudgeAssignment = reviewRecord.completedByJudge?.venueAssignments.find((assignment) => assignment.venueId === venue.id);
         return {
           review: mapReview(reviewRecord),
           round,
           rubric,
           judge: reviewRecord.judge ? mapJudge(reviewRecord.judge, venue.id) : primaryJudge,
+          completedByJudge: reviewRecord.completedByJudge && completedByJudgeAssignment ? mapJudge(reviewRecord.completedByJudge, venue.id, completedByJudgeAssignment.role) : null,
         };
       }),
     };

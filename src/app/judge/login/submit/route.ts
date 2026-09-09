@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { failedLoginDelay, isSameOriginRequest } from "@/lib/admin-auth";
 import { createJudgeSessionToken, JUDGE_SESSION_COOKIE, JUDGE_SESSION_DURATION_SECONDS, judgeSessionCookieOptions, sanitizeJudgeRedirect } from "@/lib/judge-session";
-import { authenticateJudgeByPin } from "@/lib/repositories/judge-repository";
+import { authenticateJudgeByPin, authenticateJudgeByPhonePassword } from "@/lib/repositories/judge-repository";
 
 function loginRedirect(request: NextRequest, returnTo: string, error: "incorrect" | "unavailable") {
   const url = new URL("/judge/login", request.url);
@@ -17,7 +17,17 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const returnTo = sanitizeJudgeRedirect(formData.get("returnTo"));
     const pin = formData.get("pin");
-    const identity = typeof pin === "string" ? await authenticateJudgeByPin(pin) : null;
+    const phone = formData.get("phone");
+    const password = formData.get("password");
+
+    // Try PIN authentication first (backward compatible)
+    let identity = typeof pin === "string" && pin ? await authenticateJudgeByPin(pin) : null;
+
+    // If PIN fails, try phone+password authentication
+    if (!identity && typeof phone === "string" && typeof password === "string" && phone && password) {
+      identity = await authenticateJudgeByPhonePassword(phone, password);
+    }
+
     if (!identity) {
       await failedLoginDelay();
       return loginRedirect(request, returnTo, "incorrect");
