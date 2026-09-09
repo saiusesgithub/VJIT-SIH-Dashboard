@@ -68,6 +68,16 @@ npm run db:seed:team-portal
 npm run dev
 ```
 
+### Import official team registrations
+
+The base seed deliberately creates demo teams. For the first live registration batch, import the supplied workbooks with `--remove-placeholders`; it removes only the 48 stable demo teams (`T001`–`T048`) and their demo problem statements, then adds the real roster. Future batches must omit that flag so already-imported teams stay intact.
+
+```bash
+npm run db:import:registrations -- --remove-placeholders "C:\\path\\to\\AR registrations.xlsx" "C:\\path\\to\\BC registrations.xlsx" "C:\\path\\to\\CG registrations.xlsx"
+```
+
+The importer maps team IDs to their official room ranges, upserts the team-lead data, and creates a unique random team access code for each newly created team. It stores only a bcrypt hash, an HMAC lookup, and an encrypted faculty-only recovery value. These workbooks contain only the team lead, so later detailed rosters can add the remaining members. Re-running an imported workbook updates team data without rotating its access code.
+
 Open [http://localhost:3000/admin](http://localhost:3000/admin).
 
 The committed migrations create all tables and relationships and add a bcrypt judge PIN hash to each venue assignment. The full seed is idempotent for the stable `vjit-sih-2026` event: it removes and recreates only that hackathon and its dependent rows, while upserting judge records. It restores the temporary 48-team dataset and completed-review totals of 39, 25, and 7 for rounds 1–3.
@@ -98,8 +108,10 @@ npm run db:seed:judge-pins # Update only development assignment PIN hashes
 npm run db:list:judge-pins # Print the development venue/judge PIN handout list
 npm run db:seed:team-codes # Update only deterministic development team-code hashes
 npm run db:seed:team-portal # Non-destructively upsert team portal development fixtures
+npm run db:import:registrations -- --remove-placeholders <workbook...> # Initial real roster import
 npm run db:verify    # Verify Neon connectivity and dashboard row counts
 npm run db:verify:event-config # Verify official venues, contacts, rubrics, and review totals
+npm run db:verify:registrations # Verify the imported AR, BC, and CG rosters
 npm run db:verify:team-portal # Verify team credentials, fixtures, and review totals
 npm run db:studio    # Open Prisma Studio
 ```

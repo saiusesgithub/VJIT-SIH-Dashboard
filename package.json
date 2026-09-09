@@ -14,6 +14,7 @@
     "test:qr": "tsx --test scripts/test-team-qr.ts",
     "test:judge-reviews": "tsx --test scripts/test-judge-review-authorization.ts",
     "test:event-config": "tsx --test scripts/test-event-configuration.ts",
+    "test:registration-import": "tsx --test scripts/test-registration-import.ts",
     "test:exports": "tsx --test scripts/test-leaderboard-export.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -23,8 +24,10 @@
     "db:list:judge-pins": "tsx scripts/list-development-judge-pins.ts",
     "db:seed:team-codes": "tsx scripts/seed-team-access-codes.ts",
     "db:seed:team-portal": "tsx scripts/seed-team-portal.ts",
+    "db:import:registrations": "tsx scripts/import-theme-registrations.ts",
     "db:verify": "tsx scripts/verify-neon.ts",
     "db:verify:event-config": "tsx scripts/verify-event-configuration.ts",
+    "db:verify:registrations": "tsx scripts/verify-registration-import.ts",
     "db:verify:team-portal": "tsx scripts/verify-team-portal.ts",
     "db:studio": "prisma studio"
   },
