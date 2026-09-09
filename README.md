@@ -70,16 +70,20 @@ npm run dev
 
 Open [http://localhost:3000/admin](http://localhost:3000/admin).
 
-The committed migrations create all tables and relationships and add a bcrypt judge PIN hash to each venue assignment. The full seed is idempotent for the stable `vjit-sih-2026` event: it removes and recreates only that hackathon and its dependent rows, while upserting judge records. It restores 48 teams and completed-review totals of 39, 25, and 7 for rounds 1–3.
+The committed migrations create all tables and relationships and add a bcrypt judge PIN hash to each venue assignment. The full seed is idempotent for the stable `vjit-sih-2026` event: it removes and recreates only that hackathon and its dependent rows, while upserting judge records. It restores the temporary 48-team dataset and completed-review totals of 39, 25, and 7 for rounds 1–3.
 
-For development only, the deterministic judge PINs are:
+The 2026 event configuration is transcribed from the faculty venue workbook. It contains 29 numbered allocations across 30 physical room entries (Venue 26 uses Seminar Hall and C-207), 312 planned team places, room locations, assigned themes/team-code ranges, external judges, internal judges, and faculty coordinators. Until the final team-wise roster is imported, only the existing 48 placeholder teams are attached to the first four real venues; the remaining venues correctly show zero loaded teams alongside their planned capacity.
 
-- Lab 1: `1111`
-- Lab 2: `2222`
-- Lab 3: `3333`
-- Lab 4: `4444`
+All three review rounds currently use the supplied official evaluation form: ten criteria worth 10 marks each, for a total of 100. This is database-driven, so the judge form and faculty score views render the new rubric without component-specific score columns.
 
-No raw PIN is stored. Each assignment keeps a bcrypt cost-10 hash plus a keyed HMAC lookup derived with `JUDGE_PIN_LOOKUP_SECRET` (or the documented fallback). The lookup identifies one assignment without running bcrypt against every judge, then bcrypt verifies the submitted PIN. `npm run db:seed:judge-pins` safely updates both values for the four existing assignments without resetting hackathon or review data. If the lookup secret changes, rerun this command so the stored values match it. Replace the development credentials before a real event; never reuse them in production.
+For development only, the existing smoke-test judge PINs remain:
+
+- Venue 1 / external judge: `1111`
+- Venue 2 / external judge: `2222`
+- Venue 3 / external judge: `3333`
+- Venue 4 / internal judge: `4444`
+
+Every other official judge assignment also gets a unique deterministic development PIN. Run `npm run db:list:judge-pins` to print the complete venue/room/judge/PIN handout list locally. No raw PIN is stored in PostgreSQL. Each assignment keeps a bcrypt cost-10 hash plus a keyed HMAC lookup derived with `JUDGE_PIN_LOOKUP_SECRET` (or the documented fallback). `npm run db:seed:judge-pins` safely updates all official assignment hashes without resetting teams or reviews. If the lookup secret changes, rerun this command. These predictable source-controlled credentials are for setup/testing; replace them with randomly provisioned event PINs before distributing access beyond the organizing team.
 
 For development, team access codes are deterministic: `T001` uses `DEV-T001`, continuing through `DEV-T048`. Login uses a bcrypt hash plus a keyed HMAC lookup. A separate AES-256-GCM ciphertext lets authenticated faculty recover a missed code from the admin team page; plaintext codes are not retained in PostgreSQL. The signed team cookie contains only the internal team ID, expiry, scope, and a nonce. `npm run db:seed:team-codes` updates only team credentials without resetting reviews, submissions, or issues. These predictable values are development-only. Before the event, coordinators should provision random 8–12 character codes through the same helpers and never commit them.
 
@@ -91,9 +95,11 @@ npm run db:migrate   # Create/apply development migrations
 npm run db:deploy    # Apply committed migrations in CI/production
 npm run db:seed      # Deterministically seed the internal hackathon
 npm run db:seed:judge-pins # Update only development assignment PIN hashes
+npm run db:list:judge-pins # Print the development venue/judge PIN handout list
 npm run db:seed:team-codes # Update only deterministic development team-code hashes
 npm run db:seed:team-portal # Non-destructively upsert team portal development fixtures
 npm run db:verify    # Verify Neon connectivity and dashboard row counts
+npm run db:verify:event-config # Verify official venues, contacts, rubrics, and review totals
 npm run db:verify:team-portal # Verify team credentials, fixtures, and review totals
 npm run db:studio    # Open Prisma Studio
 ```
@@ -193,5 +199,6 @@ For read-only HTTP checks, run `npm run build`, start `npm run start -- --port 3
 ```bash
 npm run lint
 npm run typecheck
+npm run test:event-config
 npm run build
 ```
