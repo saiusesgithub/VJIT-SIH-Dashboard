@@ -28,16 +28,6 @@ function statusFor(teamIndex: number, venueId: string, roundIndex: number): Revi
 function scoresFor(teamNumber: number, roundIndex: number): ReviewScore[] {
   const rubric = rubrics[roundIndex];
 
-  if (teamNumber === 1 && roundIndex === 0) {
-    return [
-      { criterionId: "innovation", score: 17 },
-      { criterionId: "understanding", score: 18 },
-      { criterionId: "feasibility", score: 16 },
-      { criterionId: "technical", score: 22 },
-      { criterionId: "presentation", score: 13 },
-    ];
-  }
-
   return rubric.criteria.map((criterion, criterionIndex) => ({
     criterionId: criterion.id,
     score: Math.max(1, criterion.maxScore - ((teamNumber + criterionIndex + roundIndex) % 4) - 1),
@@ -53,8 +43,8 @@ export const reviews: Review[] = teams.flatMap((team) => {
   return reviewRounds.map((round, roundIndex) => {
     const status = statusFor(teamIndex, team.venueId, roundIndex);
     const minuteOffset = teamNumber * 3 + roundIndex * 19;
-    const startedAt = status === "pending" ? undefined : `2026-08-21T${String(9 + Math.floor(minuteOffset / 60)).padStart(2, "0")}:${String(minuteOffset % 60).padStart(2, "0")}:00+05:30`;
-    const submittedAt = status === "completed" ? `2026-08-21T${String(9 + Math.floor((minuteOffset + 22) / 60)).padStart(2, "0")}:${String((minuteOffset + 22) % 60).padStart(2, "0")}:00+05:30` : undefined;
+    const startedAt = status === "pending" ? undefined : `2026-09-10T${String(9 + Math.floor(minuteOffset / 60)).padStart(2, "0")}:${String(minuteOffset % 60).padStart(2, "0")}:00+05:30`;
+    const submittedAt = status === "completed" ? `2026-09-10T${String(9 + Math.floor((minuteOffset + 22) / 60)).padStart(2, "0")}:${String((minuteOffset + 22) % 60).padStart(2, "0")}:00+05:30` : undefined;
 
     return {
       id: `${team.id}-${round.id}`,

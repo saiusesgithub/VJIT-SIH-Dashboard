@@ -3,7 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { compare } from "bcryptjs";
 import { PrismaClient, ReviewStatus } from "../src/generated/prisma/client";
 import { createTeamAccessLookup, developmentTeamAccessCode } from "../src/lib/team-access-credential";
-import { decryptTeamAccessCode } from "../src/lib/team-access-encryption";
+import { decryptTeamAccessCode } from "../src/lib/team-access-encryption-core";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 if (!connectionString) throw new Error("A database connection is required.");

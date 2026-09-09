@@ -2,10 +2,11 @@ import "dotenv/config";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { hash } from "bcryptjs";
 import { AnnouncementAudience, IssueCategory, IssueStatus, PrismaClient, ReviewStatus, SubmissionType } from "../src/generated/prisma/client";
-import { hackathon, judges, problemStatements, reviewRounds, reviews, rubrics, teams, venues } from "../src/data/mock/index";
+import { hackathon, problemStatements, reviewRounds, reviews, rubrics, teams, venues as mockVenues } from "../src/data/mock/index";
+import { developmentPinForAssignment, officialPlannedTeamCount, officialVenues } from "../src/data/seed/event-configuration";
 import { createJudgePinLookup, JUDGE_PIN_BCRYPT_COST } from "../src/lib/judge-pin-credential";
 import { createTeamAccessLookup, developmentTeamAccessCode, TEAM_ACCESS_BCRYPT_COST } from "../src/lib/team-access-credential";
-import { encryptTeamAccessCode } from "../src/lib/team-access-encryption";
+import { encryptTeamAccessCode } from "../src/lib/team-access-encryption-core";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 
@@ -21,13 +22,6 @@ const statusMap = {
   in_progress: ReviewStatus.IN_PROGRESS,
   completed: ReviewStatus.COMPLETED,
 } as const;
-
-const developmentJudgePins: Record<string, string> = {
-  "lab-1": "1111",
-  "lab-2": "2222",
-  "lab-3": "3333",
-  "lab-4": "4444",
-};
 
 async function seed() {
   // The mock event uses stable IDs. Remove its dependent rows in an explicit
@@ -56,61 +50,75 @@ async function seed() {
       academicYear: "2026–27",
       status: "LIVE",
       startDate: new Date(hackathon.date),
-      endDate: new Date("2026-08-21T18:00:00+05:30"),
+      endDate: new Date("2026-09-11T18:00:00+05:30"),
     },
   });
 
+  const officialJudges = new Map(officialVenues.flatMap((venue) => venue.judges).map((judge) => [judge.id, judge]));
   await Promise.all(
-    judges.map((judge) =>
+    [...officialJudges.values()].map((judge) =>
       prisma.judge.upsert({
         where: { id: judge.id },
         update: {
           name: judge.name,
-          designation: judge.designation,
-          department: judge.department,
-          phone: judge.contact,
+          designation: judge.role === "EXTERNAL" ? "External Judge" : "Internal Judge",
+          department: judge.department ?? "—",
+          phone: judge.phone,
         },
         create: {
           id: judge.id,
           name: judge.name,
-          designation: judge.designation,
-          department: judge.department,
-          phone: judge.contact,
+          designation: judge.role === "EXTERNAL" ? "External Judge" : "Internal Judge",
+          department: judge.department ?? "—",
+          phone: judge.phone,
         },
       }),
     ),
   );
 
-  for (const [index, venue] of venues.entries()) {
-    const developmentPin = developmentJudgePins[venue.id];
-    if (!developmentPin) throw new Error(`No development judge PIN configured for ${venue.id}`);
-
+  for (const [index, venue] of officialVenues.entries()) {
     await prisma.venue.create({
       data: {
         id: venue.id,
         hackathonId: hackathon.id,
-        code: venue.name.replace(/\s+/g, "").toUpperCase(),
+        code: venue.code,
         name: venue.name,
-        roomNumber: venue.room,
-        building: venue.room.split("-")[0],
+        roomNumber: venue.roomNumber,
+        building: venue.location,
+        theme: venue.theme,
+        teamCodeRange: venue.teamCodeRange,
+        plannedTeamCount: venue.plannedTeamCount,
         displayOrder: index + 1,
+        facultyCoordinators: {
+          create: venue.coordinators.map((person) => ({
+            id: person.id,
+            name: person.name,
+            department: person.department,
+            phone: person.phone,
+          })),
+        },
       },
     });
 
-    await prisma.venueJudge.create({
-      data: {
-        id: `${venue.id}-${venue.judgeId}`,
-        venueId: venue.id,
-        judgeId: venue.judgeId,
-        isPrimary: true,
-        pinHash: await hash(developmentPin, JUDGE_PIN_BCRYPT_COST),
-        pinLookup: createJudgePinLookup(developmentPin),
-      },
-    });
+    const hasExplicitPrimary = venue.judges.some((judge) => judge.isPrimary);
+    for (const [judgeIndex, judge] of venue.judges.entries()) {
+      const developmentPin = developmentPinForAssignment(index + 1, judgeIndex, judge);
+      await prisma.venueJudge.create({
+        data: {
+          id: `${venue.id}-${judge.id}`,
+          venueId: venue.id,
+          judgeId: judge.id,
+          role: judge.role,
+          isPrimary: hasExplicitPrimary ? Boolean(judge.isPrimary) : judgeIndex === 0,
+          pinHash: await hash(developmentPin, JUDGE_PIN_BCRYPT_COST),
+          pinLookup: createJudgePinLookup(developmentPin),
+        },
+      });
+    }
   }
 
   for (const statement of problemStatements) {
-    const venue = venues.find((candidate) => candidate.problemStatementIds.includes(statement.id));
+    const venue = mockVenues.find((candidate) => candidate.problemStatementIds.includes(statement.id));
     if (!venue) throw new Error(`No venue found for problem statement ${statement.id}`);
 
     await prisma.problemStatement.create({
@@ -193,14 +201,14 @@ async function seed() {
   });
 
   await prisma.announcement.createMany({ data: [
-    { id: "announcement-review-2", hackathonId: hackathon.id, title: "Review 2 begins at 1:30 PM", message: "Keep your prototype and validation evidence ready before the review window begins.", audience: AnnouncementAudience.ALL, publishedAt: new Date("2026-08-21T12:30:00+05:30") },
-    { id: "announcement-lab-1", hackathonId: hackathon.id, venueId: "lab-1", title: "Lab 1 teams: remain ready", message: "Mentors will begin the next walkthrough from Team T001.", audience: AnnouncementAudience.VENUE, publishedAt: new Date("2026-08-21T12:45:00+05:30") },
-    { id: "announcement-judges", hackathonId: hackathon.id, title: "Judge coordination note", message: "Please submit each review before moving to the next team.", audience: AnnouncementAudience.JUDGES, publishedAt: new Date("2026-08-21T10:00:00+05:30") },
+    { id: "announcement-review-2", hackathonId: hackathon.id, title: "Review 2 begins at 1:30 PM", message: "Keep your prototype and validation evidence ready before the review window begins.", audience: AnnouncementAudience.ALL, publishedAt: new Date("2026-09-10T12:30:00+05:30") },
+    { id: "announcement-lab-1", hackathonId: hackathon.id, venueId: "lab-1", title: "Venue 1 teams: remain ready", message: "Mentors will begin the next walkthrough from Team T001.", audience: AnnouncementAudience.VENUE, publishedAt: new Date("2026-09-10T12:45:00+05:30") },
+    { id: "announcement-judges", hackathonId: hackathon.id, title: "Judge coordination note", message: "Please submit each review before moving to the next team.", audience: AnnouncementAudience.JUDGES, publishedAt: new Date("2026-09-10T10:00:00+05:30") },
   ] });
 
   await prisma.teamIssue.createMany({ data: [
-    { id: "issue-team-001-review", teamId: "team-001", category: IssueCategory.REVIEW, title: "Review status not updated", description: "Our first review was completed but the portal still showed it in progress.", status: IssueStatus.IN_PROGRESS, adminResponse: "The review entry is being verified with the assigned judge.", createdAt: new Date("2026-08-21T11:42:00+05:30") },
-    { id: "issue-team-014-submission", teamId: "team-014", category: IssueCategory.SUBMISSION, title: "Presentation link not opening", description: "The presentation link was updated and needs verification.", status: IssueStatus.RESOLVED, adminResponse: "The updated link is accessible now.", createdAt: new Date("2026-08-21T10:30:00+05:30"), resolvedAt: new Date("2026-08-21T10:48:00+05:30") },
+    { id: "issue-team-001-review", teamId: "team-001", category: IssueCategory.REVIEW, title: "Review status not updated", description: "Our first review was completed but the portal still showed it in progress.", status: IssueStatus.IN_PROGRESS, adminResponse: "The review entry is being verified with the assigned judge.", createdAt: new Date("2026-09-10T11:42:00+05:30") },
+    { id: "issue-team-014-submission", teamId: "team-014", category: IssueCategory.SUBMISSION, title: "Presentation link not opening", description: "The presentation link was updated and needs verification.", status: IssueStatus.RESOLVED, adminResponse: "The updated link is accessible now.", createdAt: new Date("2026-09-10T10:30:00+05:30"), resolvedAt: new Date("2026-09-10T10:48:00+05:30") },
   ] });
 
   for (const review of reviews) {
@@ -242,7 +250,8 @@ async function seed() {
 
   console.info("Seed complete", {
     hackathons: 1,
-    venues: venues.length,
+    venues: officialVenues.length,
+    plannedTeams: officialPlannedTeamCount,
     problemStatements: statementCount,
     teams: teamCount,
     completedReviews: reviewCounts.map((item) => ({ roundId: item.reviewRoundId, count: item._count._all })),

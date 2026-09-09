@@ -3,7 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { hash } from "bcryptjs";
 import { AnnouncementAudience, IssueCategory, IssueStatus, PrismaClient, SubmissionType } from "../src/generated/prisma/client";
 import { createTeamAccessLookup, developmentTeamAccessCode, TEAM_ACCESS_BCRYPT_COST } from "../src/lib/team-access-credential";
-import { encryptTeamAccessCode } from "../src/lib/team-access-encryption";
+import { encryptTeamAccessCode } from "../src/lib/team-access-encryption-core";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DIRECT_URL || process.env.DATABASE_URL;
 if (!connectionString) throw new Error("Set DATABASE_URL_UNPOOLED, DIRECT_URL, or DATABASE_URL before seeding the team portal.");
@@ -28,9 +28,9 @@ async function main() {
   if (firstRound) await prisma.reviewRound.update({ where: { id: firstRound.id }, data: { feedbackVisibleToTeams: true } });
 
   for (const item of [
-    { id: "announcement-review-2", title: "Review 2 begins at 1:30 PM", message: "Keep your prototype and validation evidence ready before the review window begins.", audience: AnnouncementAudience.ALL, publishedAt: new Date("2026-08-21T12:30:00+05:30") },
-    { id: "announcement-lab-1", venueId: "lab-1", title: "Lab 1 teams: remain ready", message: "Mentors will begin the next walkthrough from Team T001.", audience: AnnouncementAudience.VENUE, publishedAt: new Date("2026-08-21T12:45:00+05:30") },
-    { id: "announcement-judges", title: "Judge coordination note", message: "Please submit each review before moving to the next team.", audience: AnnouncementAudience.JUDGES, publishedAt: new Date("2026-08-21T10:00:00+05:30") },
+    { id: "announcement-review-2", title: "Review 2 begins at 1:30 PM", message: "Keep your prototype and validation evidence ready before the review window begins.", audience: AnnouncementAudience.ALL, publishedAt: new Date("2026-09-10T12:30:00+05:30") },
+    { id: "announcement-lab-1", venueId: "lab-1", title: "Venue 1 teams: remain ready", message: "Mentors will begin the next walkthrough from Team T001.", audience: AnnouncementAudience.VENUE, publishedAt: new Date("2026-09-10T12:45:00+05:30") },
+    { id: "announcement-judges", title: "Judge coordination note", message: "Please submit each review before moving to the next team.", audience: AnnouncementAudience.JUDGES, publishedAt: new Date("2026-09-10T10:00:00+05:30") },
   ]) await prisma.announcement.upsert({ where: { id: item.id }, create: { ...item, hackathonId: event.id }, update: item });
 
   const team1 = teams.find((team) => team.teamCode === "T001");
