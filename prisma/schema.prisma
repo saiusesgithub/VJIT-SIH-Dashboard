@@ -31,6 +31,11 @@ enum UserRole {
   TEAM
 }
 
+enum VenueJudgeRole {
+  EXTERNAL
+  INTERNAL
+}
+
 enum SubmissionType {
   GITHUB
   DEMO
@@ -83,20 +88,24 @@ model Hackathon {
 }
 
 model Venue {
-  id                String             @id
-  hackathonId       String
-  code              String
-  name              String
-  roomNumber        String
-  building          String?
-  displayOrder      Int
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  hackathon         Hackathon          @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
-  problemStatements ProblemStatement[]
-  teams             Team[]
-  judgeAssignments  VenueJudge[]
-  announcements     Announcement[]
+  id                  String               @id
+  hackathonId         String
+  code                String
+  name                String
+  roomNumber          String
+  building            String?
+  theme               String?
+  teamCodeRange       String?
+  plannedTeamCount    Int?
+  displayOrder        Int
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  hackathon           Hackathon            @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  problemStatements   ProblemStatement[]
+  teams               Team[]
+  judgeAssignments    VenueJudge[]
+  facultyCoordinators FacultyCoordinator[]
+  announcements       Announcement[]
 
   @@unique([hackathonId, code])
   @@unique([hackathonId, displayOrder])
@@ -118,19 +127,33 @@ model Judge {
 }
 
 model VenueJudge {
-  id        String   @id
+  id        String         @id
   venueId   String
   judgeId   String
-  isPrimary Boolean  @default(false)
+  isPrimary Boolean        @default(false)
+  role      VenueJudgeRole @default(INTERNAL)
   pinHash   String?
-  pinLookup String?  @unique
-  createdAt DateTime @default(now())
-  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  judge     Judge    @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  pinLookup String?        @unique
+  createdAt DateTime       @default(now())
+  venue     Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  judge     Judge          @relation(fields: [judgeId], references: [id], onDelete: Cascade)
 
   @@unique([venueId, judgeId])
   @@index([venueId, isPrimary])
   @@index([judgeId])
+}
+
+model FacultyCoordinator {
+  id         String   @id
+  venueId    String
+  name       String
+  department String?
+  phone      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  venue      Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
 }
 
 model ProblemStatement {
@@ -155,28 +178,28 @@ model ProblemStatement {
 }
 
 model Team {
-  id                 String           @id
-  hackathonId        String
-  venueId            String
-  problemStatementId String
-  teamCode           String
-  teamName           String
-  accessCodeHash     String?
-  accessCodeLookup   String?          @unique
+  id                  String                @id
+  hackathonId         String
+  venueId             String
+  problemStatementId  String
+  teamCode            String
+  teamName            String
+  accessCodeHash      String?
+  accessCodeLookup    String?               @unique
   accessCodeEncrypted String?
-  finalDecision      ShortlistingDecision?
-  decisionUpdatedAt  DateTime?
-  decisionRevision   Int              @default(0)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  hackathon          Hackathon        @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
-  venue              Venue            @relation(fields: [venueId], references: [id], onDelete: Restrict)
-  problemStatement   ProblemStatement @relation(fields: [problemStatementId], references: [id], onDelete: Restrict)
-  members            TeamMember[]
-  reviews            Review[]
-  submissions        TeamSubmission[]
-  issues             TeamIssue[]
-  userProfile        UserProfile?
+  finalDecision       ShortlistingDecision?
+  decisionUpdatedAt   DateTime?
+  decisionRevision    Int                   @default(0)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  hackathon           Hackathon             @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  venue               Venue                 @relation(fields: [venueId], references: [id], onDelete: Restrict)
+  problemStatement    ProblemStatement      @relation(fields: [problemStatementId], references: [id], onDelete: Restrict)
+  members             TeamMember[]
+  reviews             Review[]
+  submissions         TeamSubmission[]
+  issues              TeamIssue[]
+  userProfile         UserProfile?
 
   @@unique([hackathonId, teamCode])
   @@index([venueId])

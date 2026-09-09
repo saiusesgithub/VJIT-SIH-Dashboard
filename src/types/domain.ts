@@ -15,6 +15,12 @@ export interface Venue {
   room: string;
   problemStatementIds: string[];
   judgeId: string;
+  location?: string;
+  theme?: string;
+  teamCodeRange?: string;
+  plannedTeamCount?: number;
+  judges?: Judge[];
+  facultyCoordinators?: FacultyCoordinator[];
 }
 
 export interface Judge {
@@ -23,6 +29,22 @@ export interface Judge {
   designation: string;
   department: string;
   venueId: string;
+  contact?: string;
+  role?: "external" | "internal";
+}
+
+export interface FacultyCoordinator {
+  id: string;
+  name: string;
+  department?: string;
+  contact?: string;
+  role?: "external" | "internal";
+}
+
+export interface FacultyCoordinator {
+  id: string;
+  name: string;
+  department?: string;
   contact?: string;
 }
 
