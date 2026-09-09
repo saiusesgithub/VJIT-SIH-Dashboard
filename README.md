@@ -53,7 +53,7 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 `ADMIN_PIN` is the shared faculty PIN. `ADMIN_SESSION_SECRET` signs the HTTP-only admin, judge, and team session cookies and must contain at least 32 characters. `JUDGE_PIN_LOOKUP_SECRET` and `TEAM_ACCESS_LOOKUP_SECRET` create keyed credential lookups and should stay identical for every deployment that accesses the same database. `TEAM_ACCESS_ENCRYPTION_SECRET` encrypts the recoverable team code shown on authenticated faculty team-detail pages. Each has a documented fallback for existing environments, but separate production values are recommended. Changing a lookup secret requires reseeding its matching lookup values; changing the encryption secret requires reseeding team codes; changing the session secret immediately invalidates active sessions.
 
-The same `ADMIN_SESSION_SECRET` signs a separately scoped 12-hour judge cookie. Judge identities and venue IDs come from the signed cookie and are verified against the database on every protected data operation; raw judge PINs never enter a cookie or database row.
+The same `ADMIN_SESSION_SECRET` signs a separately scoped 12-hour judge cookie. Judge identities and venue IDs come from the signed cookie and are verified against the database on every protected data operation; raw judge PINs and passwords never enter a cookie or database row.
 
 ## Local setup
 
@@ -67,6 +67,17 @@ npm run db:seed:team-codes
 npm run db:seed:team-portal
 npm run dev
 ```
+
+### Import judge phone/password credentials
+
+Judge PIN login remains supported. To enable the phone-and-password option, run the credential importer locally against the supplied workbook. It writes bcrypt hashes only; do not copy the workbook or any raw passwords into the repository.
+
+```bash
+npm run db:seed:judge-passwords -- "C:\\path\\to\\Judges_sih26.xlsx"
+npm run db:verify:judge-credentials
+```
+
+Rows 1–20 are assigned the external role and rows 21–40 the internal role, as directed by faculty. A started review is owned by its first judge; no other judge can work on it concurrently. A completed review can be edited only by the judge who completed it, and the faculty team detail view shows that judge and their role.
 
 ### Import official team registrations
 
@@ -105,6 +116,8 @@ npm run db:migrate   # Create/apply development migrations
 npm run db:deploy    # Apply committed migrations in CI/production
 npm run db:seed      # Deterministically seed the internal hackathon
 npm run db:seed:judge-pins # Update only development assignment PIN hashes
+npm run db:seed:judge-passwords -- <Judges_sih26.xlsx> # Hash local judge phone/password credentials
+npm run db:verify:judge-credentials # Confirm 40 password-enabled judges without exposing credentials
 npm run db:list:judge-pins # Print the development venue/judge PIN handout list
 npm run db:seed:team-codes # Update only deterministic development team-code hashes
 npm run db:seed:team-portal # Non-destructively upsert team portal development fixtures
