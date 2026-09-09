@@ -4,6 +4,7 @@ import { cache } from "react";
 import { Prisma, ReviewStatus } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
 import { createJudgePinLookup, DUMMY_JUDGE_PIN_HASH } from "@/lib/judge-pin-credential";
+import { canJudgeEditCompletedReview, canJudgeWriteReview } from "@/lib/judge-review-authorization";
 import type { JudgeSessionPayload } from "@/lib/judge-session";
 import type { ReviewStatus as UiReviewStatus } from "@/types/domain";
 
@@ -67,6 +68,7 @@ export interface JudgeReviewData {
     remarks: string;
     improvements: string;
     scores: Record<string, number>;
+    canEdit: boolean;
   };
   rubrics: Array<{ id: string; name: string; description?: string; maxMarks: number }>;
 }
@@ -266,6 +268,9 @@ export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId
       remarks: review?.generalRemarks ?? "",
       improvements: review?.improvements ?? "",
       scores: Object.fromEntries((review?.scores ?? []).map((score) => [score.rubricId, score.score.toNumber()])),
+      canEdit: review?.status === ReviewStatus.COMPLETED
+        ? canJudgeEditCompletedReview(review.judgeId, session.judgeId)
+        : canJudgeWriteReview(review?.judgeId, session.judgeId),
     },
     rubrics: round.rubrics.map((rubric) => ({ id: rubric.id, name: rubric.name, description: rubric.description ?? undefined, maxMarks: rubric.maxMarks.toNumber() })),
   };
@@ -284,6 +289,7 @@ export async function startReview(session: JudgeSessionPayload, teamId: string, 
       create: { id: `review-${teamId}-${roundId}`, teamId, reviewRoundId: roundId, judgeId: session.judgeId, status: ReviewStatus.IN_PROGRESS, startedAt: new Date() },
       update: {},
     });
+    if (!canJudgeWriteReview(review.judgeId, session.judgeId)) return null;
     if (review.status === ReviewStatus.PENDING) {
       return tx.review.update({ where: { id: review.id }, data: { status: ReviewStatus.IN_PROGRESS, startedAt: review.startedAt ?? new Date(), judgeId: session.judgeId } });
     }
@@ -327,13 +333,24 @@ export async function submitReview(session: JudgeSessionPayload, teamId: string,
       update: {},
       include: { scores: true },
     });
-    if (review.status === ReviewStatus.COMPLETED) {
-      return sameCompletedReview(review, submission)
-        ? { ok: true as const, total: review.scores.reduce((sum, score) => sum + score.score.toNumber(), 0), alreadySubmitted: true }
-        : { ok: false as const, code: "locked" as const };
+    const editingCompleted = review.status === ReviewStatus.COMPLETED;
+    if (editingCompleted
+      ? !canJudgeEditCompletedReview(review.judgeId, session.judgeId)
+      : !canJudgeWriteReview(review.judgeId, session.judgeId)) {
+      return { ok: false as const, code: "not_owner" as const };
     }
-    const claimed = await tx.review.updateMany({ where: { id: review.id, status: { not: ReviewStatus.COMPLETED } }, data: { judgeId: session.judgeId, startedAt: review.startedAt ?? new Date() } });
-    if (claimed.count !== 1) return { ok: false as const, code: "locked" as const };
+    if (review.status === ReviewStatus.COMPLETED) {
+      if (sameCompletedReview(review, submission)) {
+        return { ok: true as const, total: review.scores.reduce((sum, score) => sum + score.score.toNumber(), 0), alreadySubmitted: true, edited: false };
+      }
+    }
+    if (!editingCompleted) {
+      const claimed = await tx.review.updateMany({
+        where: { id: review.id, status: { not: ReviewStatus.COMPLETED }, OR: [{ judgeId: null }, { judgeId: session.judgeId }] },
+        data: { judgeId: session.judgeId, startedAt: review.startedAt ?? new Date() },
+      });
+      if (claimed.count !== 1) return { ok: false as const, code: "not_owner" as const };
+    }
     for (const rubric of round.rubrics) {
       const score = unique.get(rubric.id)!;
       await tx.reviewScore.upsert({
@@ -344,8 +361,14 @@ export async function submitReview(session: JudgeSessionPayload, teamId: string,
     }
     await tx.review.update({
       where: { id: review.id },
-      data: { status: ReviewStatus.COMPLETED, judgeId: session.judgeId, submittedAt: new Date(), generalRemarks: submission.remarks.trim() || null, improvements: submission.improvements.trim() || null },
+      data: {
+        status: ReviewStatus.COMPLETED,
+        judgeId: session.judgeId,
+        submittedAt: review.submittedAt ?? new Date(),
+        generalRemarks: submission.remarks.trim() || null,
+        improvements: submission.improvements.trim() || null,
+      },
     });
-    return { ok: true as const, total: round.rubrics.reduce((sum, rubric) => sum + unique.get(rubric.id)!, 0), alreadySubmitted: false };
+    return { ok: true as const, total: round.rubrics.reduce((sum, rubric) => sum + unique.get(rubric.id)!, 0), alreadySubmitted: false, edited: editingCompleted };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

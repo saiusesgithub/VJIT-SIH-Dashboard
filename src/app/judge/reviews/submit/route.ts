@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
     if (scores.some((score) => !score)) return NextResponse.json({ error: "Invalid score data" }, { status: 400 });
     const result = await submitReview(session, body.teamId, body.roundId, { scores: scores as Array<{ rubricId: string; score: number }>, remarks: body.remarks, improvements: body.improvements });
     if (!result.ok) {
-      const status = result.code === "not_found" ? 404 : result.code === "locked" ? 409 : 400;
-      return NextResponse.json({ error: result.code === "locked" ? "This review has already been submitted." : "Review data is invalid." }, { status });
+      const status = result.code === "not_found" ? 404 : result.code === "not_owner" ? 403 : 400;
+      return NextResponse.json({ error: result.code === "not_owner" ? "Only the judge who started or submitted this review can change it." : "Review data is invalid." }, { status });
     }
     return NextResponse.json(result);
   } catch {
