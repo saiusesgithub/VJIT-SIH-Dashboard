@@ -37,7 +37,7 @@ export default async function TeamQrCardsPage({ searchParams }: { searchParams: 
         {/* Generated PNG data URLs need no image optimizer and must load before print. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img data-team-qr-image src={team.image} alt={`Scan to open ${team.teamCode} in the judge workspace`} width={512} height={512} className="team-qr-image" loading="eager" />
-        <p className="text-sm font-semibold text-zinc-950">Scan to evaluate</p><p className="mt-1 text-[11px] text-zinc-500">Judge PIN required · Assigned venue only</p>
+        <p className="text-sm font-semibold text-zinc-950">Scan to evaluate</p><p className="mt-1 text-[11px] text-zinc-500">Judge sign-in required · Assigned venue only</p>
       </article>)}
     </section>)}</div>
     {configured && !cards.length ? <p className="qr-screen-only rounded-xl border border-zinc-200 bg-white p-10 text-center text-sm text-zinc-500">No teams match these filters.</p> : null}

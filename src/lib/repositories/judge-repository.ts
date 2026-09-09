@@ -3,7 +3,6 @@ import { compare } from "bcryptjs";
 import { cache } from "react";
 import { Prisma, ReviewStatus } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
-import { createJudgePinLookup, DUMMY_JUDGE_PIN_HASH } from "@/lib/judge-pin-credential";
 import { normalizeJudgePhone } from "@/lib/judge-credentials";
 import { canJudgeEditCompletedReview, canJudgeWriteReview, type JudgeReviewAuthContext } from "@/lib/judge-review-authorization";
 import type { JudgeSessionPayload } from "@/lib/judge-session";
@@ -14,6 +13,7 @@ const statusMap: Record<ReviewStatus, UiReviewStatus> = {
   IN_PROGRESS: "in_progress",
   COMPLETED: "completed",
 };
+const DUMMY_JUDGE_PASSWORD_HASH = "$2b$10$D4e6tX/2CJeSQDbq3pqGxOvlY97Ha6A41l8PXlpsoT0l0mtiJpvZ2";
 
 function safeId(value: string) {
   return /^[a-z0-9-]{1,64}$/i.test(value);
@@ -104,23 +104,13 @@ function mapIdentity(assignment: Prisma.VenueJudgeGetPayload<{ include: typeof a
 
 const findSessionAssignment = cache(async (assignmentId: string, judgeId: string, venueId: string) => {
   return getDb().venueJudge.findFirst({
-    where: { id: assignmentId, judgeId, venueId, pinHash: { not: null } },
+    where: { id: assignmentId, judgeId, venueId },
     include: assignmentInclude,
   });
 });
 
 function assignmentForSession(session: JudgeSessionPayload) {
   return findSessionAssignment(session.assignmentId, session.judgeId, session.venueId);
-}
-
-export async function authenticateJudgeByPin(pin: string): Promise<JudgeIdentity | null> {
-  if (!pin || pin.length > 128) return null;
-  const assignment = await getDb().venueJudge.findUnique({
-    where: { pinLookup: createJudgePinLookup(pin) },
-    include: assignmentInclude,
-  });
-  const matches = await compare(pin, assignment?.pinHash ?? DUMMY_JUDGE_PIN_HASH);
-  return assignment && matches ? mapIdentity(assignment) : null;
 }
 
 export async function authenticateJudgeByPhonePassword(phone: string, password: string): Promise<JudgeIdentity | null> {
@@ -136,7 +126,7 @@ export async function authenticateJudgeByPhonePassword(phone: string, password: 
     },
     include: {
       venueAssignments: {
-        where: { pinHash: { not: null } }, // Only active assignments with PIN
+        where: {},
         include: { venue: assignmentInclude.venue },
         orderBy: [{ isPrimary: "desc" }, { venue: { displayOrder: "asc" } }],
         take: 1, // Phone/password login opens the judge's primary assignment.
@@ -144,7 +134,7 @@ export async function authenticateJudgeByPhonePassword(phone: string, password: 
     },
   });
 
-  const matches = await compare(password, judge?.passwordHash ?? DUMMY_JUDGE_PIN_HASH);
+  const matches = await compare(password, judge?.passwordHash ?? DUMMY_JUDGE_PASSWORD_HASH);
   if (!judge || !judge.passwordHash || judge.venueAssignments.length === 0 || !matches) return null;
 
   // Use the first active venue assignment
@@ -173,7 +163,6 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
       id: session.assignmentId,
       judgeId: session.judgeId,
       venueId: session.venueId,
-      pinHash: { not: null },
     },
     include: {
       judge: true,
@@ -360,7 +349,7 @@ export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId
 export async function startReview(session: JudgeSessionPayload, teamId: string, roundId: string) {
   if (!safeId(teamId) || !safeId(roundId)) return null;
   return getDb().$transaction(async (tx) => {
-    const assignment = await tx.venueJudge.findFirst({ where: { id: session.assignmentId, judgeId: session.judgeId, venueId: session.venueId, pinHash: { not: null } } });
+    const assignment = await tx.venueJudge.findFirst({ where: { id: session.assignmentId, judgeId: session.judgeId, venueId: session.venueId } });
     const team = await tx.team.findFirst({ where: { id: teamId, venueId: session.venueId }, select: { id: true, hackathonId: true } });
     if (!assignment || !team) return null;
     const round = await tx.reviewRound.findFirst({ where: { id: roundId, hackathonId: team.hackathonId }, select: { id: true } });
@@ -406,7 +395,7 @@ export async function submitReview(session: JudgeSessionPayload, teamId: string,
   return getDb().$transaction(async (tx) => {
     const [assignment, team] = await Promise.all([
       tx.venueJudge.findFirst({
-        where: { id: session.assignmentId, judgeId: session.judgeId, venueId: session.venueId, pinHash: { not: null } },
+        where: { id: session.assignmentId, judgeId: session.judgeId, venueId: session.venueId },
         select: { id: true, role: true }
       }),
       tx.team.findFirst({ where: { id: teamId, venueId: session.venueId }, select: { id: true, hackathonId: true } }),

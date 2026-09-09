@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ArrowRight, KeyRound } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { JUDGE_SESSION_COOKIE, sanitizeJudgeRedirect, verifyJudgeSessionToken } from "@/lib/judge-session";
 import { getJudgeSessionData } from "@/lib/repositories/judge-repository";
 import { JudgeLoginForm } from "./judge-login-form";
@@ -27,7 +27,7 @@ export default async function JudgeLoginPage({ searchParams }: { searchParams: P
           <div className="flex size-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50"><KeyRound className="size-4 text-zinc-600" /></div>
           <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Judge access</p>
           <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-950">Sign in to review teams</h1>
-          <p className="mt-1.5 text-sm leading-6 text-zinc-500">Use your PIN or phone number and password.</p>
+          <p className="mt-1.5 text-sm leading-6 text-zinc-500">Use your assigned phone number and password.</p>
           <JudgeLoginForm returnTo={returnTo} error={error} />
         </section>
         <p id="judge-access-note" className="mt-4 text-center text-xs leading-5 text-zinc-400">Restricted to assigned judges and mentors.</p>

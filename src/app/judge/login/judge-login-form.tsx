@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 
 interface JudgeLoginFormProps {
@@ -9,59 +8,11 @@ interface JudgeLoginFormProps {
 }
 
 export function JudgeLoginForm({ returnTo, error }: JudgeLoginFormProps) {
-  const [mode, setMode] = useState<"pin" | "phone">("pin");
-
   return (
     <>
-      <div className="mt-6 flex gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
-        <button
-          type="button"
-          onClick={() => setMode("pin")}
-          className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            mode === "pin"
-              ? "bg-white text-zinc-950 shadow-sm"
-              : "text-zinc-600 hover:text-zinc-950"
-          }`}
-        >
-          Use PIN
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("phone")}
-          className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            mode === "phone"
-              ? "bg-white text-zinc-950 shadow-sm"
-              : "text-zinc-600 hover:text-zinc-950"
-          }`}
-        >
-          Use Phone & Password
-        </button>
-      </div>
-
-      <form action="/judge/login/submit" method="post" className="mt-4">
+      <form action="/judge/login/submit" method="post" className="mt-6">
         <input type="hidden" name="returnTo" value={returnTo} />
-        
-        {mode === "pin" ? (
-          <div>
-            <label htmlFor="judge-pin" className="text-xs font-medium text-zinc-700">
-              Judge PIN
-            </label>
-            <input
-              id="judge-pin"
-              name="pin"
-              type="password"
-              inputMode="numeric"
-              autoComplete="current-password"
-              autoFocus
-              required
-              maxLength={128}
-              className="mt-2 h-12 w-full rounded-lg border border-zinc-300 bg-white px-3 text-base tracking-[0.25em] text-zinc-950 outline-none transition-colors placeholder:tracking-normal placeholder:text-zinc-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="Enter PIN"
-              aria-describedby={error ? "judge-login-error" : "judge-access-note"}
-            />
-          </div>
-        ) : (
-          <div className="space-y-4">
+        <div className="space-y-4">
             <div>
               <label htmlFor="judge-phone" className="text-xs font-medium text-zinc-700">
                 Phone Number
@@ -95,8 +46,7 @@ export function JudgeLoginForm({ returnTo, error }: JudgeLoginFormProps) {
                 placeholder="Enter password"
               />
             </div>
-          </div>
-        )}
+        </div>
 
         {error ? (
           <p id="judge-login-error" role="alert" className="mt-2.5 text-sm font-medium text-red-600">
