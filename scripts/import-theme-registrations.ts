@@ -4,7 +4,7 @@ import ExcelJS from "exceljs";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { hash } from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { createRegistrationSummary, getVenueIdForTeamCode, inferAcademicYear, normalizeProblemStatementCode, normalizeTeamCode, type RegistrationRow } from "../src/data/seed/registration-import";
+import { createRegistrationSummary, getVenueIdForTeamCode, inferAcademicYear, normalizeProblemStatementCode, normalizeTeamCodeWithOCorrection, type RegistrationRow } from "../src/data/seed/registration-import";
 import { createTeamAccessLookup, TEAM_ACCESS_BCRYPT_COST } from "../src/lib/team-access-credential";
 import { encryptTeamAccessCode } from "../src/lib/team-access-encryption-core";
 
@@ -51,7 +51,7 @@ async function loadRows(workbookPath: string) {
     const sourceTeamCode = cellAt(row, 3);
     if (!sourceTeamCode) return;
     rows.push({
-      teamCode: normalizeTeamCode(sourceTeamCode), teamName: cellAt(row, 2), theme: cellAt(row, 4), category: cellAt(row, 5),
+      teamCode: normalizeTeamCodeWithOCorrection(sourceTeamCode), teamName: cellAt(row, 2), theme: cellAt(row, 4), category: cellAt(row, 5),
       ideaTitle: normalizeTitle(cellAt(row, 6)), leadName: cellAt(row, 7), leadRollNumber: cellAt(row, 8).toUpperCase(), leadDepartment: cellAt(row, 9),
       leadPhone: cellAt(row, 10), leadEmail: cellAt(row, 11).toLowerCase(), problemStatementCode: normalizeProblemStatementCode(cellAt(row, 12)),
     });
