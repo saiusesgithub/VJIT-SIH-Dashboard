@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, LockKeyhole, Trophy } from "lucide-react";
+import { ArrowUpRight, Download, LockKeyhole, Trophy } from "lucide-react";
 import { getFacultyLeaderboard } from "@/lib/repositories/leaderboard-repository";
 import { ShortlistingControl } from "@/components/admin/shortlisting-control";
 import { decisionLabels } from "@/lib/shortlisting";
@@ -18,6 +18,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const decision = typeof params.decision === "string" && (params.decision === "UNDECIDED" || Object.hasOwn(decisionLabels, params.decision)) ? params.decision : "";
   const entries = data.entries.filter((row) => (!venueId || row.venue.id === venueId) && (!problemId || row.problem.id === problemId) && (!decision || (decision === "UNDECIDED" ? row.shortlisting.decision === null : row.shortlisting.decision === decision)));
   const fullyEvaluated = data.entries.filter((row) => data.roundCount > 0 && row.completedReviews === data.roundCount).length;
+  const shortlistedCount = data.entries.filter((row) => row.shortlisting.decision === "SHORTLISTED").length;
 
   return (
     <div className="space-y-5">
@@ -44,6 +45,18 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         <button className="h-10 rounded-lg bg-zinc-950 px-4 text-xs font-semibold text-white transition-colors hover:bg-zinc-800">Apply filters</button>
         {venueId || problemId || decision ? <Link href="/admin/leaderboard" className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-200 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50">Clear</Link> : null}
       </form>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-xl"><h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900"><Download className="size-4 text-zinc-500" /> Export public team list</h2><p className="mt-1 text-xs leading-5 text-zinc-500">Download an Excel sheet for public sharing. It excludes marks, feedback, judge details, and access credentials.</p></div>
+          <form action="/admin/leaderboard/export" method="get" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-end">
+            <label className="text-xs font-medium text-zinc-600">Teams to include<select name="scope" defaultValue="ranked" className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="ranked">Top-ranked teams</option><option value="shortlisted">Marked Shortlisted only ({shortlistedCount})</option></select></label>
+            <label className="text-xs font-medium text-zinc-600">Maximum teams<select name="limit" defaultValue="25" className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm tabular-nums focus-visible:outline-2 focus-visible:outline-blue-600"><option value="10">Top 10</option><option value="25">Top 25</option><option value="50">Top 50</option><option value="all">All eligible</option></select></label>
+            <button type="submit" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Download className="size-4" /> Export Excel</button>
+          </form>
+        </div>
+        <p className="mt-3 border-t border-zinc-100 pt-3 text-[11px] leading-5 text-amber-800">Top-ranked export uses the current live standings and does not change final decisions. Confirm reviews and the selected list before publishing.</p>
+      </section>
 
       <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3"><h2 className="text-sm font-semibold">Team standings</h2><p className="text-xs text-zinc-500">{entries.length} teams · ranks remain relative to their full group</p></div>
