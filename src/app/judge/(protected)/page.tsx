@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Bell, ChevronDown, MapPin, ShieldAlert, X } from "lucide-react";
+import { ArrowRight, Bell, ChevronDown, MapPin, Palette, Phone, ShieldAlert, UserRound, X } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -24,8 +24,17 @@ export default async function JudgeHomePage({ searchParams }: { searchParams: Pr
           <div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">Assigned venue</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">{data.identity.venueName}</h1><p className="mt-1 flex items-center gap-1.5 text-sm text-zinc-500"><MapPin className="size-3.5" /> {data.identity.roomNumber} · {data.problemRange}</p></div>
           <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">Hackathon live</span>
         </div>
-        <p className="mt-4 border-t border-zinc-100 pt-4 text-sm font-medium text-zinc-800">{data.identity.judgeName}</p><p className="mt-0.5 text-xs text-zinc-500">{data.identity.designation} · {data.identity.department}</p>
+        <p className="mt-4 border-t border-zinc-100 pt-4 text-sm font-medium text-zinc-800">{data.identity.judgeName}</p><p className="mt-0.5 text-xs text-zinc-500">{data.identity.role === "external" ? "External judge" : "Internal judge"} · {data.identity.department}</p>
       </section>
+
+      <details className="group overflow-hidden rounded-xl border border-zinc-200 bg-white">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3"><MapPin className="size-4 text-zinc-500" /><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-zinc-900">Venue information & contacts</p><p className="mt-0.5 truncate text-xs text-zinc-500">{data.venueDetails.location ?? data.identity.roomNumber}</p></div><ChevronDown className="size-4 text-zinc-400 transition-transform duration-200 group-open:rotate-180" /></summary>
+        <div className="space-y-4 border-t border-zinc-100 bg-zinc-50/50 px-4 py-4">
+          <div><p className="flex items-center gap-1.5 text-xs font-medium text-zinc-500"><Palette className="size-3.5" /> Theme</p><p className="mt-1 text-sm leading-6 text-zinc-800">{data.venueDetails.theme ?? "Not assigned"}</p></div>
+          <div><p className="text-xs font-medium text-zinc-500">Judges</p><div className="mt-2 space-y-2">{data.venueDetails.judges.map((judge) => <div key={`${judge.id}-${judge.role}`} className="flex items-start gap-2"><UserRound className="mt-0.5 size-3.5 shrink-0 text-zinc-400" /><div><p className="text-sm font-medium text-zinc-900">{judge.name}{judge.department && judge.department !== "External" ? ` (${judge.department})` : ""}</p><p className="text-[11px] capitalize text-zinc-500">{judge.role} judge{judge.phone ? <> · <a href={`tel:${judge.phone}`} className="text-blue-700 hover:text-blue-800">{judge.phone}</a></> : ""}</p></div></div>)}</div></div>
+          <div><p className="text-xs font-medium text-zinc-500">Faculty coordinator{data.venueDetails.coordinators.length === 1 ? "" : "s"}</p><div className="mt-2 space-y-2">{data.venueDetails.coordinators.map((person) => <div key={person.id} className="flex items-start gap-2"><Phone className="mt-0.5 size-3.5 shrink-0 text-zinc-400" /><div><p className="text-sm font-medium text-zinc-900">{person.name}{person.department ? ` (${person.department})` : ""}</p><p className="text-[11px] text-zinc-500">{person.phone ? <a href={`tel:${person.phone}`} className="text-blue-700 hover:text-blue-800">{person.phone}</a> : "Phone not provided"}</p></div></div>)}</div></div>
+        </div>
+      </details>
 
       {data.announcements.length ? <section aria-labelledby="judge-announcements"><div className="mb-2 flex items-center justify-between"><h2 id="judge-announcements" className="flex items-center gap-2 text-sm font-semibold text-zinc-900"><Bell className="size-4 text-zinc-500" /> Announcements</h2><span className="text-xs text-zinc-500">{data.announcements.length} active</span></div><div className="space-y-2">{data.announcements.map((item, index) => <details key={item.id} open={index === 0} className="group overflow-hidden rounded-xl border border-zinc-200 bg-white transition-all duration-200 open:border-zinc-300 open:shadow-sm"><summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3"><span className="relative flex size-2 shrink-0"><span className="absolute inline-flex size-full rounded-full bg-blue-400 opacity-30 group-open:animate-ping" /><span className="relative inline-flex size-2 rounded-full bg-blue-600" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-zinc-900">{item.title}</p><p className="mt-0.5 text-[11px] text-zinc-400">{formatDateTime(item.publishedAt)}</p></div><ChevronDown className="size-4 shrink-0 text-zinc-400 transition-transform duration-200 group-open:rotate-180" /></summary><p className="border-t border-zinc-100 bg-zinc-50/50 px-4 py-3 text-sm leading-6 text-zinc-600">{item.message}</p></details>)}</div></section> : null}
 

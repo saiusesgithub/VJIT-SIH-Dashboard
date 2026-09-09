@@ -2,12 +2,14 @@ import "server-only";
 import { cache } from "react";
 import type {
   Judge as DbJudge,
+  FacultyCoordinator as DbFacultyCoordinator,
   ProblemStatement as DbProblemStatement,
   Review as DbReview,
   ReviewRound as DbReviewRound,
   Team as DbTeam,
   TeamMember as DbTeamMember,
   Venue as DbVenue,
+  VenueJudgeRole,
 } from "@/generated/prisma/client";
 import { ReviewStatus as DbReviewStatus } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
@@ -36,7 +38,8 @@ import type {
 
 type VenueRecord = DbVenue & {
   problemStatements: Array<{ id: string }>;
-  judgeAssignments: Array<{ judge: DbJudge }>;
+  judgeAssignments: Array<{ judge: DbJudge; role: VenueJudgeRole }>;
+  facultyCoordinators: DbFacultyCoordinator[];
 };
 
 type TeamRecord = DbTeam & { members: DbTeamMember[] };
@@ -53,7 +56,7 @@ function isSafeLookupId(value: string) {
   return /^[a-z0-9-]{1,64}$/i.test(value);
 }
 
-function mapJudge(record: DbJudge, venueId: string): Judge {
+function mapJudge(record: DbJudge, venueId: string, role?: VenueJudgeRole): Judge {
   return {
     id: record.id,
     name: record.name,
@@ -61,6 +64,7 @@ function mapJudge(record: DbJudge, venueId: string): Judge {
     department: record.department,
     venueId,
     contact: record.phone ?? record.email ?? undefined,
+    role: role?.toLowerCase() as Judge["role"],
   };
 }
 
@@ -75,6 +79,17 @@ function mapVenue(record: VenueRecord): Venue {
     room: record.roomNumber,
     problemStatementIds: record.problemStatements.map((statement) => statement.id),
     judgeId: record.judgeAssignments[0]?.judge.id ?? "",
+    location: record.building ?? undefined,
+    theme: record.theme ?? undefined,
+    teamCodeRange: record.teamCodeRange ?? undefined,
+    plannedTeamCount: record.plannedTeamCount ?? undefined,
+    judges: record.judgeAssignments.map((assignment) => mapJudge(assignment.judge, record.id, assignment.role)),
+    facultyCoordinators: record.facultyCoordinators.map((person) => ({
+      id: person.id,
+      name: person.name,
+      department: person.department ?? undefined,
+      contact: person.phone ?? undefined,
+    })),
   };
 }
 
@@ -178,10 +193,10 @@ function calculateVenueProgress(venue: Venue, rounds: ReviewRound[], teams: Prog
 const venueInclude = {
   problemStatements: { select: { id: true }, orderBy: { code: "asc" as const } },
   judgeAssignments: {
-    where: { isPrimary: true },
     include: { judge: true },
-    take: 1,
+    orderBy: [{ isPrimary: "desc" as const }, { createdAt: "asc" as const }],
   },
+  facultyCoordinators: { orderBy: { name: "asc" as const } },
 };
 
 const getProgressSource = cache(async () => {
@@ -364,7 +379,7 @@ export const evaluationRepository: EvaluationRepository = {
 
   async getJudgeForVenue(venueId) {
     const assignment = await getDb().venueJudge.findFirst({ where: { venueId }, include: { judge: true }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] });
-    return assignment ? mapJudge(assignment.judge, venueId) : null;
+    return assignment ? mapJudge(assignment.judge, venueId, assignment.role) : null;
   },
 
   async getProblemStatementById(id) {
@@ -422,7 +437,7 @@ export const evaluationRepository: EvaluationRepository = {
           teamCode: team.teamCode,
           teamName: team.teamName,
           venue: base.venues[venueIndex],
-          judge: venueRecord?.judgeAssignments[0] ? mapJudge(venueRecord.judgeAssignments[0].judge, team.venueId) : undefined,
+          judge: venueRecord?.judgeAssignments[0] ? mapJudge(venueRecord.judgeAssignments[0].judge, team.venueId, venueRecord.judgeAssignments[0].role) : undefined,
         };
       }),
     };
@@ -477,7 +492,7 @@ export const evaluationRepository: EvaluationRepository = {
     });
     if (!record) return null;
     const venue = mapVenue(record.venue);
-    const primaryJudge = record.venue.judgeAssignments[0]?.judge ? mapJudge(record.venue.judgeAssignments[0].judge, venue.id) : unassignedJudge(venue.id);
+    const primaryJudge = record.venue.judgeAssignments[0]?.judge ? mapJudge(record.venue.judgeAssignments[0].judge, venue.id, record.venue.judgeAssignments[0].role) : unassignedJudge(venue.id);
     return {
       team: mapTeam(record),
       accessCode: decryptTeamAccessCode(record.accessCodeEncrypted),

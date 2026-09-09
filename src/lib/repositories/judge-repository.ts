@@ -27,6 +27,7 @@ export interface JudgeIdentity {
   department: string;
   venueName: string;
   roomNumber: string;
+  role: "external" | "internal";
 }
 
 export interface JudgeTeamSummary {
@@ -41,6 +42,14 @@ export interface JudgeTeamSummary {
 export interface JudgeDashboardData {
   identity: JudgeIdentity;
   problemRange: string;
+  venueDetails: {
+    location?: string;
+    theme?: string;
+    teamCodeRange?: string;
+    plannedTeamCount?: number;
+    judges: Array<{ id: string; name: string; role: "external" | "internal"; department: string; phone?: string }>;
+    coordinators: Array<{ id: string; name: string; department?: string; phone?: string }>;
+  };
   rounds: Array<{ id: string; number: number; name: string; completed: number; inProgress: number; total: number }>;
   teams: JudgeTeamSummary[];
   announcements: Array<{ id: string; title: string; message: string; publishedAt: string }>;
@@ -88,6 +97,7 @@ function mapIdentity(assignment: Prisma.VenueJudgeGetPayload<{ include: typeof a
     department: assignment.judge.department,
     venueName: assignment.venue.name,
     roomNumber: assignment.venue.roomNumber,
+    role: assignment.role.toLowerCase() as JudgeIdentity["role"],
   };
 }
 
@@ -135,6 +145,8 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
             orderBy: { teamCode: "asc" },
           },
           problemStatements: { select: { code: true }, orderBy: { code: "asc" } },
+          judgeAssignments: { include: { judge: true }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
+          facultyCoordinators: { orderBy: { name: "asc" } },
         },
       },
     },
@@ -167,7 +179,26 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
   });
   return {
     identity: mapIdentity(assignment),
-    problemRange: statements.length ? `${statements[0].code}–${statements.at(-1)?.code}` : "No statements assigned",
+    problemRange: assignment.venue.teamCodeRange ?? (statements.length ? `${statements[0].code}–${statements.at(-1)?.code}` : "Team roster pending"),
+    venueDetails: {
+      location: assignment.venue.building ?? undefined,
+      theme: assignment.venue.theme ?? undefined,
+      teamCodeRange: assignment.venue.teamCodeRange ?? undefined,
+      plannedTeamCount: assignment.venue.plannedTeamCount ?? undefined,
+      judges: assignment.venue.judgeAssignments.map((item) => ({
+        id: item.judge.id,
+        name: item.judge.name,
+        role: item.role.toLowerCase() as "external" | "internal",
+        department: item.judge.department,
+        phone: item.judge.phone ?? undefined,
+      })),
+      coordinators: assignment.venue.facultyCoordinators.map((person) => ({
+        id: person.id,
+        name: person.name,
+        department: person.department ?? undefined,
+        phone: person.phone ?? undefined,
+      })),
+    },
     rounds: rounds.map((round) => {
       const reviews = teams.flatMap((team) => team.reviews.filter((review) => review.reviewRoundId === round.id));
       return {

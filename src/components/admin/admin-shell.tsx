@@ -23,7 +23,7 @@ function VenueNavigation({ data, pathname, onNavigate }: { data: AdminShellData;
     <div className="px-3 py-5">
       <div className="mb-2 flex items-center justify-between px-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Venues</p>
-        <span className="text-[11px] tabular-nums text-zinc-400">4 labs</span>
+        <span className="text-[11px] tabular-nums text-zinc-400">{data.venues.length} venues</span>
       </div>
       <nav className="space-y-1" aria-label="Venue navigation">
         {data.venues.map((progress) => {
@@ -35,12 +35,12 @@ function VenueNavigation({ data, pathname, onNavigate }: { data: AdminShellData;
                 <span className={cn("text-sm font-medium", active ? "text-zinc-950" : "text-zinc-700")}>{venue.name}</span>
                 <ChevronRight className={cn("size-3.5 transition-transform duration-150", active ? "text-zinc-600" : "text-zinc-300 group-hover:translate-x-0.5 group-hover:text-zinc-500")} />
               </div>
-              <p className="mt-0.5 text-xs text-zinc-500">{venue.room} · {rangeLabel(venue.problemStatementIds.map((id) => id.toUpperCase()))}</p>
+              <p className="mt-0.5 truncate text-xs text-zinc-500">{venue.room} · {venue.teamCodeRange ?? rangeLabel(venue.problemStatementIds.map((id) => id.toUpperCase()))}</p>
               <div className="mt-2.5 flex items-center gap-2">
                 <ProgressBar value={progress.percentage} className="flex-1" />
                 <span className="w-7 text-right text-[11px] font-medium tabular-nums text-zinc-500">{progress.percentage}%</span>
               </div>
-              <p className="mt-1.5 text-[11px] text-zinc-400">{progress.teamCount} teams</p>
+              <p className="mt-1.5 text-[11px] text-zinc-400">{progress.teamCount} loaded{venue.plannedTeamCount != null ? ` · ${venue.plannedTeamCount} planned` : ""}</p>
             </Link>
           );
         })}
@@ -112,7 +112,7 @@ export function AdminShell({ data, children }: { data: AdminShellData; children:
         <Link href="/admin" className="flex min-w-0 items-center gap-3"><Logo /><div className="min-w-0"><p className="truncate text-sm font-semibold tracking-tight text-zinc-950">VJIT SIH Internal Hackathon</p><p className="text-[11px] text-zinc-500">Evaluation Dashboard</p></div></Link>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <div className="hidden items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sm:flex"><span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-40" /><span className="relative inline-flex size-2 rounded-full bg-emerald-500" /></span><span className="text-xs font-medium text-emerald-700">Hackathon Live</span></div>
-          <span className="hidden text-xs text-zinc-500 md:block">21 Aug 2026</span>
+          <span className="hidden text-xs text-zinc-500 md:block">10–11 Sep 2026</span>
           <button className="inline-flex size-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800" aria-label="Refresh dashboard"><RefreshCw className="size-3.5" /></button>
           <form action="/admin/logout" method="post">
             <button type="submit" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-zinc-200 px-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800" aria-label="Lock dashboard" title="Lock dashboard"><LockKeyhole className="size-3.5" /><span className="hidden text-xs font-medium xl:inline">Lock</span></button>
