@@ -219,6 +219,19 @@ export async function getJudgeTeamDetails(session: JudgeSessionPayload, teamId: 
   };
 }
 
+export async function getJudgeTeamAccessFailure(session: JudgeSessionPayload, teamId: string) {
+  if (!safeId(teamId)) return "not_found" as const;
+  const [assignment, team] = await Promise.all([
+    assignmentForSession(session),
+    getDb().team.findFirst({
+      where: { OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] },
+      select: { venueId: true, hackathonId: true },
+    }),
+  ]);
+  if (!assignment || !team || team.hackathonId !== assignment.venue.hackathonId) return "not_found" as const;
+  return team.venueId !== session.venueId ? "wrong_venue" as const : "not_found" as const;
+}
+
 export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId: string, roundId: string): Promise<JudgeReviewData | null> {
   if (!safeId(teamId) || !safeId(roundId)) return null;
   const [assignment, team] = await Promise.all([

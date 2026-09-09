@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Bell, ChevronDown, MapPin } from "lucide-react";
+import { ArrowRight, Bell, ChevronDown, MapPin, ShieldAlert, X } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -10,12 +10,14 @@ import { requireJudgeSession } from "@/lib/require-judge-session";
 
 export const metadata: Metadata = { title: "Judge teams" };
 
-export default async function JudgeHomePage() {
+export default async function JudgeHomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireJudgeSession();
-  const data = await getJudgeDashboard(session);
+  const [data, params] = await Promise.all([getJudgeDashboard(session), searchParams]);
   if (!data) return null;
+  const wrongVenue = params.scanError === "wrong-venue";
   return (
     <div className="space-y-5">
+      {wrongVenue ? <div role="alert" className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950"><ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-700" /><div className="min-w-0 flex-1"><p className="text-sm font-semibold">That team belongs to a different venue</p><p className="mt-1 text-xs leading-5 text-amber-800">You are signed in for {data.identity.venueName} · {data.identity.roomNumber}, so the team was not opened. Ask the judge assigned to that venue to scan its card.</p></div><Link href="/judge" aria-label="Dismiss venue warning" className="grid size-8 shrink-0 place-items-center rounded-lg text-amber-700 hover:bg-amber-100"><X className="size-4" /></Link></div> : null}
       <TeamQrScanner />
       <section className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">

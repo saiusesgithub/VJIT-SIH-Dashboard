@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, ChevronDown, ExternalLink, Link2, MapPin, Users } from "lucide-react";
 import { NextReviewAction } from "@/components/judge/next-review-action";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateTime } from "@/lib/format";
-import { getJudgeTeamDetails } from "@/lib/repositories/judge-repository";
+import { getJudgeTeamAccessFailure, getJudgeTeamDetails } from "@/lib/repositories/judge-repository";
 import { requireJudgeSession } from "@/lib/require-judge-session";
 
 export const metadata: Metadata = { title: "Team review" };
@@ -14,7 +14,11 @@ export default async function JudgeTeamPage({ params }: { params: Promise<{ team
   const session = await requireJudgeSession();
   const { teamId } = await params;
   const team = await getJudgeTeamDetails(session, teamId);
-  if (!team) notFound();
+  if (!team) {
+    const failure = await getJudgeTeamAccessFailure(session, teamId);
+    if (failure === "wrong_venue") redirect("/judge?scanError=wrong-venue");
+    notFound();
+  }
   return (
     <div className="space-y-5">
       <Link href="/judge" className="inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-900"><ArrowLeft className="size-4" /> Scan or choose another team</Link>
