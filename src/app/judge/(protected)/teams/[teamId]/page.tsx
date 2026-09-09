@@ -17,7 +17,7 @@ export default async function JudgeTeamPage({ params }: { params: Promise<{ team
   if (!team) notFound();
   return (
     <div className="space-y-5">
-      <Link href="/judge" className="inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-900"><ArrowLeft className="size-4" /> All teams</Link>
+      <Link href="/judge" className="inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-900"><ArrowLeft className="size-4" /> Scan or choose another team</Link>
       <section className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5"><div className="flex items-start gap-3"><span className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 font-mono text-xs font-semibold text-zinc-700">{team.code}</span><div><h1 className="text-xl font-semibold tracking-tight text-zinc-950">{team.name}</h1><p className="mt-1 text-sm font-medium text-zinc-700">{team.problem.code} · {team.problem.title}</p></div></div><div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-zinc-100 pt-4 text-xs text-zinc-500"><span>{team.problem.organization}</span><span>{team.problem.theme}</span></div></section>
       <p className="flex items-center gap-2 text-sm font-medium text-zinc-700"><MapPin className="size-4 text-zinc-500" />{team.venue.name} · Room {team.venue.room}</p>
       <NextReviewAction teamId={team.id} rounds={team.rounds} />

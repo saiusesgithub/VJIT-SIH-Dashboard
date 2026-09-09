@@ -37,6 +37,10 @@ async function main() {
   const get = (path: string, cookie = "", rsc = false) => fetch(`${baseUrl}${path}`, {
     redirect: "manual", signal: AbortSignal.timeout(30_000), headers: { Cookie: cookie, ...(rsc ? { RSC: "1" } : {}) },
   });
+  const judgeHome = await get("/judge", judgeCookie);
+  assert.equal(judgeHome.status, 200);
+  const judgeHomeHtml = await judgeHome.text();
+  assert.ok(judgeHomeHtml.includes("Scan a team QR") && judgeHomeHtml.includes("Assigned teams"), "Judge home must provide scanner and manual team list");
   for (const cookie of ["", judgeCookie, `${TEAM_SESSION_COOKIE}=${teamToken}`, `${ADMIN_SESSION_COOKIE}=${judgeToken}`, `${ADMIN_SESSION_COOKIE}=${teamToken}`]) {
     for (const rsc of [false, true]) {
       const denied = await get("/admin/qr-cards", cookie, rsc);

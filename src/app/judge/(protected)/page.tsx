@@ -4,6 +4,7 @@ import { ArrowRight, Bell, ChevronDown, MapPin } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { TeamQrScanner } from "@/components/judge/team-qr-scanner";
 import { getJudgeDashboard } from "@/lib/repositories/judge-repository";
 import { requireJudgeSession } from "@/lib/require-judge-session";
 
@@ -15,6 +16,7 @@ export default async function JudgeHomePage() {
   if (!data) return null;
   return (
     <div className="space-y-5">
+      <TeamQrScanner />
       <section className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">Assigned venue</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">{data.identity.venueName}</h1><p className="mt-1 flex items-center gap-1.5 text-sm text-zinc-500"><MapPin className="size-3.5" /> {data.identity.roomNumber} · {data.problemRange}</p></div>

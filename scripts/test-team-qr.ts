@@ -5,6 +5,7 @@ import { PNG } from "pngjs";
 import { createTeamQrImage, getJudgeTeamUrl, getQrOrigin } from "../src/lib/team-qr";
 import { getCurrentJudgeRound } from "../src/lib/judge-navigation";
 import { sanitizeJudgeRedirect } from "../src/lib/judge-session";
+import { parseJudgeTeamQrValue } from "../src/lib/judge-team-qr";
 
 test("QR destinations use a configured canonical origin and stable internal team ID", () => {
   assert.equal(getJudgeTeamUrl("https://sih.example.edu/", "team-017"), "https://sih.example.edu/judge/teams/team-017");
@@ -41,4 +42,18 @@ test("current review prioritizes in-progress work over an earlier pending round"
   assert.equal(getCurrentJudgeRound([done, pending]), pending);
   assert.equal(getCurrentJudgeRound([done]), undefined);
   assert.equal(getCurrentJudgeRound([]), undefined);
+});
+
+test("judge scanner accepts only same-origin team QR destinations", () => {
+  const origin = "https://sih.example.edu";
+  assert.equal(parseJudgeTeamQrValue(`${origin}/judge/teams/team-017`, origin), "/judge/teams/team-017");
+  assert.equal(parseJudgeTeamQrValue("/judge/teams/team-017", origin), "/judge/teams/team-017");
+  for (const value of [
+    "https://evil.example/judge/teams/team-017",
+    `${origin}/judge/teams/team-017?pin=1234`,
+    `${origin}/judge/teams/team-017#scores`,
+    `${origin}/judge/teams/team-017/reviews/review-1`,
+    `${origin}/admin/teams/team-017`,
+    "not a QR URL",
+  ]) assert.equal(parseJudgeTeamQrValue(value, origin), null);
 });
