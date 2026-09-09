@@ -141,7 +141,7 @@ Set `ADMIN_PIN` and `ADMIN_SESSION_SECRET` for Development, Preview, and Product
 
 Judge access is assignment-based: each `VenueJudge` row has a one-way bcrypt PIN hash. A successful PIN creates the HTTP-only `sih_judge_session` cookie. The server derives judge and venue identity from that signed session and returns not found for teams outside the assigned venue.
 
-Opening an editable review marks it `IN_PROGRESS` once. Final submission validates every score against the database rubric, upserts score rows and completes the review inside a serializable Prisma transaction. Retried identical submissions are idempotent; completed reviews are read-only.
+Opening an editable review marks it `IN_PROGRESS` once. Final submission validates every score against the database rubric, upserts score rows and completes the review inside a serializable Prisma transaction. Retried identical submissions are idempotent. The submitting judge can reopen **Edit my review** to correct their own marks, remarks, or improvements; other judge identities remain read-only and are rejected again inside the write transaction.
 
 While editing, the browser stores a local draft scoped to judge, team, and round. Failed submissions keep the draft, successful submissions remove it, and signing out intentionally leaves drafts on the device.
 

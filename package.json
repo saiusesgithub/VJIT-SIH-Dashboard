@@ -12,6 +12,7 @@
     "test:leaderboard": "tsx --test scripts/test-leaderboard.ts scripts/test-admin-session.ts",
     "test:faculty": "tsx --test scripts/test-admin-session.ts scripts/test-leaderboard.ts scripts/test-faculty-results.ts",
     "test:qr": "tsx --test scripts/test-team-qr.ts",
+    "test:judge-reviews": "tsx --test scripts/test-judge-review-authorization.ts",
     "test:exports": "tsx --test scripts/test-leaderboard-export.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
