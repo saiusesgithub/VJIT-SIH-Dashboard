@@ -56,6 +56,7 @@ async function main() {
   const images = [...html.matchAll(/<img\b[^>]*data-team-qr-image[^>]*>/g)];
   assert.equal(images.length, teams.length, "Every selected team needs one QR");
   assert.equal((html.match(/<section\b[^>]*data-team-qr-sheet/g) ?? []).length, Math.ceil(teams.length / 9), "Print layout must use nine cards per sheet");
+  assert.ok(!html.includes(getJudgeTeamUrl(configured.origin, ownTeam.id)), "Raw judge team URLs must not be printed as card text");
   const decodedUrls: string[] = [];
   for (const image of images) {
     const encoded = image[0].match(/src="data:image\/png;base64,([^"]+)"/);

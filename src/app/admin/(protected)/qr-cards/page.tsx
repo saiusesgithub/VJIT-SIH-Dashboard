@@ -3,7 +3,7 @@ import Link from "next/link";
 import { QrCode } from "lucide-react";
 import { PrintQrButton } from "@/components/admin/print-qr-button";
 import { getFacultyTeamQrData } from "@/lib/repositories/team-qr-repository";
-import { createTeamQrImage, getJudgeTeamUrl, getQrOrigin } from "@/lib/team-qr";
+import { createTeamQrImage, getQrOrigin } from "@/lib/team-qr";
 import "./print.css";
 
 export const metadata: Metadata = { title: "Team QR cards", robots: { index: false, follow: false } };
@@ -15,7 +15,7 @@ export default async function TeamQrCardsPage({ searchParams }: { searchParams: 
   const teamId = typeof params.team === "string" ? params.team : "";
   const teams = data.teams.filter((team) => (!venueId || team.venue.id === venueId) && (!teamId || team.id === teamId));
   const configured = getQrOrigin(process.env.APP_URL);
-  const cards = configured ? await Promise.all(teams.map(async (team) => ({ ...team, url: getJudgeTeamUrl(configured.origin, team.id), image: await createTeamQrImage(configured.origin, team.id) }))) : [];
+  const cards = configured ? await Promise.all(teams.map(async (team) => ({ ...team, image: await createTeamQrImage(configured.origin, team.id) }))) : [];
   const sheets = Array.from({ length: Math.ceil(cards.length / 9) }, (_, index) => cards.slice(index * 9, index * 9 + 9));
 
   return <div data-team-qr-print className="space-y-5">
@@ -29,7 +29,7 @@ export default async function TeamQrCardsPage({ searchParams }: { searchParams: 
       </form>
       <p className="text-xs text-zinc-500">{teams.length} teams selected · {sheets.length} printable sheets. After scanning, judges confirm the team and explicitly start or continue a review.</p>
     </div>
-    <div className="qr-print-content space-y-5">{sheets.map((sheet, index) => <section key={index} data-team-qr-sheet className="team-qr-sheet" aria-label={`QR card sheet ${index + 1}`}>
+    <div className="qr-print-content">{sheets.map((sheet, index) => <section key={index} data-team-qr-sheet className="team-qr-sheet" aria-label={`QR card sheet ${index + 1}`}>
       {sheet.map((team) => <article key={team.id} className="team-qr-card">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{data.event?.name}</p>
         <p className="mt-3 font-mono text-3xl font-bold tracking-tight text-zinc-950">{team.teamCode}</p><h2 className="mt-1 break-words text-lg font-semibold text-zinc-950">{team.teamName}</h2>
@@ -38,7 +38,6 @@ export default async function TeamQrCardsPage({ searchParams }: { searchParams: 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img data-team-qr-image src={team.image} alt={`Scan to open ${team.teamCode} in the judge workspace`} width={512} height={512} className="team-qr-image" loading="eager" />
         <p className="text-sm font-semibold text-zinc-950">Scan to evaluate</p><p className="mt-1 text-[11px] text-zinc-500">Judge PIN required · Assigned venue only</p>
-        <p className="mt-2 break-all font-mono text-[9px] leading-4 text-zinc-500">{team.url}</p>
       </article>)}
     </section>)}</div>
     {configured && !cards.length ? <p className="qr-screen-only rounded-xl border border-zinc-200 bg-white p-10 text-center text-sm text-zinc-500">No teams match these filters.</p> : null}
