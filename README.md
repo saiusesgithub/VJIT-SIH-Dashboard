@@ -117,6 +117,7 @@ Do not run `prisma migrate dev` against the production database. Do not seed pro
 - `/admin/venues/[venueId]` — venue progress and assigned teams
 - `/admin/teams/[teamId]` — team information, members, rubrics, scores, and feedback
 - `/admin/qr-cards` — faculty-only printable team desk cards, filterable by venue or team
+- `/admin/leaderboard/export` — faculty-only Excel download for ranked or shortlisted teams
 - `/judge/login` — public judge/mentor PIN entry
 - `/judge` — assigned venue progress and teams
 - `/judge/teams/[teamId]` — authorized team and review-round overview
@@ -144,6 +145,8 @@ Opening an editable review marks it `IN_PROGRESS` once. Final submission validat
 
 While editing, the browser stores a local draft scoped to judge, team, and round. Failed submissions keep the draft, successful submissions remove it, and signing out intentionally leaves drafts on the device.
 
+After the first judge PIN login, `/judge` provides an in-app QR camera scanner above the manual team list. The first scan requires a user tap and browser camera permission. Once enabled, the scanner resumes when the judge returns to the judge home screen during that browser session. Only same-origin `/judge/teams/<team-id>` QR values are accepted; the existing server-side venue authorization remains authoritative. Camera scanning requires HTTPS in production (localhost is permitted by browsers for development).
+
 The manifests and service worker make both judge and team interfaces installable where supported. On eligible Chromium browsers, each interface presents its own install sheet and opens the browser installation prompt after the user taps **Install app**. On iPhone/iPad, the sheet explains Safari's **Share → Add to Home Screen** flow. Dismissing a sheet hides it for seven days for that interface, and installed apps do not show it. Browser security does not permit silent installation without a user gesture.
 
 The service worker caches only static assets, icons, and manifests. Navigation, authenticated team/review data, write endpoints, and admin analytics are never runtime-cached, so PostgreSQL remains the source of truth. Team logout clears the cookie and browser HTTP cache while intentionally preserving no sensitive runtime response cache.
@@ -158,7 +161,7 @@ Set `APP_URL` to the **permanent public HTTPS origin** of the event app in `.env
 
 Faculty can open **Admin → Team QR cards** (`/admin/qr-cards`), select all teams, a venue, or one team, and use **Print / Save PDF**. Cards contain team code/name, assigned venue/room, problem statement, and a QR code for `/judge/teams/<stable-internal-team-id>`. There are four cards per A4 sheet. Use 100% print scale and disable browser headers/footers. Test-scan a printed card with a phone before distributing a full batch. Reprint venue labels if a team moves rooms; the URL continues to resolve using its current assignment.
 
-The QR is a navigation link, **not a credential**: no access code, PIN, token, scores, or decision is embedded. QR images are generated locally on the server, not by an external QR service. Judges sign in if necessary and return to the scanned team. Existing server-side venue checks deny other venues. The team-confirmation screen shows venue, problem statement, and the in-progress review (otherwise the next pending round). Scanning only opens that screen; a judge must explicitly open a review to start it. All-completed teams stay read-only. Phone camera scanning is sufficient; there is no new in-app camera permission or scanner dependency.
+The QR is a navigation link, **not a credential**: no access code, PIN, token, scores, or decision is embedded. QR images are generated locally on the server, not by an external QR service. Judges sign in once, then use the in-app camera scanner or manual list for subsequent teams while the 12-hour judge session remains valid. Existing server-side venue checks deny other venues. The team-confirmation screen shows venue, problem statement, and the in-progress review (otherwise the next pending round). Scanning only opens that screen; a judge must explicitly open a review to start it. All-completed teams stay read-only.
 
 Run `npm run test:qr` for actual QR decoding, destination validation, login return paths, and review-selection tests. The QR encoder uses the [node-qrcode API](https://github.com/soldair/node-qrcode#readme) with black-on-white PNGs and a four-module quiet zone. Verify HTTPS, the final domain, print quality, and camera scanning on real event phones before printing.
 
@@ -179,11 +182,13 @@ For integration tests, build and start the app on port 3100 using a **developmen
 
 Open `/admin/leaderboard` from the admin sidebar. Only an admin-scoped session can query or render these standings; judge and team cookies cannot grant access. Existing faculty sessions issued before the explicit admin scope was introduced must sign in again once. No schema migration or new environment variables are needed for the leaderboard.
 
+The **Export public team list** control downloads the top 10, 25, 50, or all eligible teams as `.xlsx`. Faculty can export either the current top-ranked teams or only teams explicitly marked `SHORTLISTED`. The file contains rank, team identity, problem statement, venue, review progress, and final decision. It intentionally excludes marks, feedback, judge details, contacts, PINs, and team access codes. Top-ranked exports use live standings and do not write or change final decisions, so faculty must confirm the list before publishing it. Run `npm run test:exports` to verify option validation, selection, workbook readability, typed ranks, and formula-injection handling.
+
 Ranks use the sum of marks from **completed reviews only**, with no additional round weighting. Pending/in-progress reviews add no points; teams with no completed review are unranked. Equal totals use competition ranking (1, 1, 3). Venue ranks use the team's physical venue, and problem-statement ranks use its assigned problem statement. Filters never recalculate those ranks. Completion counts identify provisional results while reviews are unfinished. Scores are read afresh on page requests/refresh, not stored as duplicate analytics or exposed through judge/team endpoints. The existing static-only PWA cache does not cache standings.
 
 Run `npm run test:leaderboard` for ranking edge cases and cross-role session rejection tests.
 
-For read-only HTTP checks, run `npm run build`, start `npm run start -- --port 3100` in one terminal, and run `npx tsx scripts/verify-leaderboard-route.ts` in another. This verifies HTML/RSC access denial for unauthenticated, judge, and team sessions (including cookies renamed to the admin cookie), faculty rendering, a venue filter, and private/no-store responses using the local `.env`. It does not modify database rows.
+For read-only HTTP checks, run `npm run build`, start `npm run start -- --port 3100` in one terminal, and run `npx tsx scripts/verify-leaderboard-route.ts` in another. This verifies HTML/RSC access denial for unauthenticated, judge, and team sessions (including cookies renamed to the admin cookie), faculty rendering, a venue filter, and a private/no-store Excel download that can be reopened successfully. It does not modify database rows.
 
 ```bash
 npm run lint
