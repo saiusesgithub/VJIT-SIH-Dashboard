@@ -24,7 +24,7 @@ export async function getFacultyLeaderboard() {
         id: true, teamCode: true, teamName: true,
         finalDecision: true, decisionRevision: true, decisionUpdatedAt: true,
         venue: { select: { id: true, name: true, roomNumber: true } },
-        problemStatement: { select: { id: true, code: true, title: true } },
+        problemStatement: { select: { id: true, code: true, title: true, theme: true, category: true } },
         reviews: {
           where: { status: "COMPLETED", reviewRound: { hackathonId: event.id } },
           select: { status: true, reviewRound: { select: { roundNumber: true } }, scores: { select: { score: true } } },

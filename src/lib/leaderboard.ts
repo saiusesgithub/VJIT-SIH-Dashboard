@@ -3,7 +3,7 @@ export interface LeaderboardTeam {
   code: string;
   name: string;
   venue: { id: string; name: string; room: string };
-  problem: { id: string; code: string; title: string };
+  problem: { id: string; code: string; title: string; theme?: string | null; category?: string | null };
   reviews: Array<{ status: string; scores: number[] }>;
 }
 

@@ -14,7 +14,8 @@ export async function GET(request: Request) {
   const generatedAt = new Date();
   const workbook = await createLeaderboardWorkbook({ eventName: data.event.name, roundCount: data.roundCount, generatedAt, options, entries });
   const suffix = options.limit === null ? "all" : `top-${options.limit}`;
-  const filename = `vjit-sih-${options.scope}-${suffix}.xlsx`;
+  const themeSuffix = options.theme ? `-${options.theme.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}` : "";
+  const filename = `vjit-sih-${options.scope}${themeSuffix}-${suffix}.xlsx`;
   return new Response(workbook, { headers: {
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="${filename}"`,

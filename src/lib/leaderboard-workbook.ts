@@ -23,22 +23,22 @@ export async function createLeaderboardWorkbook(input: {
     views: [{ state: "frozen", ySplit: 5 }],
   });
   sheet.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
-  sheet.mergeCells("A1:I1");
+  sheet.mergeCells("A1:L1");
   sheet.getCell("A1").value = safeText(input.eventName);
   sheet.getCell("A1").font = { name: "Arial", size: 16, bold: true, color: { argb: "FF18181B" } };
   sheet.getCell("A1").alignment = { vertical: "middle" };
   sheet.getRow(1).height = 28;
-  sheet.mergeCells("A2:I2");
+  sheet.mergeCells("A2:L2");
   const basis = input.options.scope === "shortlisted" ? "Faculty-shortlisted teams" : "Top-ranked teams";
   const count = input.options.limit === null ? "All" : `Top ${input.options.limit}`;
-  sheet.getCell("A2").value = `${count} · ${basis}`;
+  sheet.getCell("A2").value = `${count} · ${basis}${input.options.theme ? ` · ${input.options.theme}` : ""}`;
   sheet.getCell("A2").font = { name: "Arial", size: 10, italic: true, color: { argb: "FF52525B" } };
   sheet.getCell("A4").value = "Generated at";
   sheet.getCell("B4").value = input.generatedAt;
   sheet.getCell("B4").numFmt = "dd mmm yyyy, hh:mm AM/PM";
   sheet.getRow(4).font = { name: "Arial", size: 9, color: { argb: "FF71717A" } };
 
-  const headers = ["Overall rank", "Team ID", "Team name", "Problem code", "Problem statement", "Venue", "Room", "Review progress", "Final decision"];
+  const headers = ["Overall rank", "Team ID", "Team name", "Type", "Theme", "Problem code", "Problem statement", "Venue", "Room", "Final score", "Review progress", "Final decision"];
   sheet.getRow(5).values = headers;
   sheet.getRow(5).height = 27;
   sheet.getRow(5).eachCell((cell) => {
@@ -52,16 +52,19 @@ export async function createLeaderboardWorkbook(input: {
       entry.overallRank,
       safeText(entry.code),
       safeText(entry.name),
+      safeText(entry.problem.category || "Not specified"),
+      safeText(entry.problem.theme || "Not specified"),
       safeText(entry.problem.code),
       safeText(entry.problem.title),
       safeText(entry.venue.name),
       safeText(entry.venue.room),
+      entry.totalScore,
       `${entry.completedReviews} / ${input.roundCount}`,
       entry.shortlisting.decision ? decisionLabels[entry.shortlisting.decision] : "Not decided",
     ]);
   }
   const lastRow = Math.max(5, sheet.rowCount);
-  sheet.autoFilter = { from: "A5", to: "I5" };
+  sheet.autoFilter = { from: "A5", to: "L5" };
   for (let rowNumber = 6; rowNumber <= lastRow; rowNumber += 1) {
     const row = sheet.getRow(rowNumber);
     row.font = { name: "Arial", size: 10, color: { argb: "FF27272A" } };
@@ -70,11 +73,13 @@ export async function createLeaderboardWorkbook(input: {
     row.getCell(1).numFmt = "0";
     row.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
     row.getCell(5).alignment = { wrapText: true, vertical: "middle" };
+    row.getCell(7).alignment = { wrapText: true, vertical: "middle" };
+    row.getCell(10).numFmt = "0.00";
     row.height = 28;
   }
-  [12, 12, 24, 14, 38, 15, 12, 16, 17].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  [12, 12, 24, 14, 26, 14, 38, 15, 12, 13, 16, 17].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   sheet.getColumn(2).numFmt = "@";
-  sheet.getColumn(4).numFmt = "@";
+  sheet.getColumn(6).numFmt = "@";
   sheet.headerFooter.oddFooter = "VJIT SIH Internal Hackathon · Public team selection";
   return new Uint8Array(await workbook.xlsx.writeBuffer());
 }
