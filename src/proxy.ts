@@ -18,7 +18,7 @@ export async function proxy(request: NextRequest) {
   const valid = isTeamRoute ? Boolean(await verifyTeamSessionToken(session)) : isJudgeRoute ? Boolean(await verifyJudgeSessionToken(session)) : Boolean(adminRole);
   if (valid) {
     const isAdminWrite = !isTeamRoute && !isJudgeRoute && request.method !== "GET" && request.method !== "HEAD" && pathname !== "/admin/logout";
-    if (isAdminWrite && adminRole !== "super_admin" && pathname !== "/admin/reviews/reset") return new Response("Super-admin access required", { status: 403 });
+    if (isAdminWrite && adminRole !== "super_admin") return new Response("Super-admin access required", { status: 403 });
     return NextResponse.next();
   }
 

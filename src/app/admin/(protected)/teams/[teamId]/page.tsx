@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, Landmark, MapPin, Shapes, UserRound } from "lucide-react";
@@ -8,6 +9,7 @@ import { TeamAccessCode } from "@/components/admin/team-access-code";
 import { getTeamPageData } from "@/lib/repositories/evaluation-repository";
 import { getTeamShortlisting } from "@/lib/repositories/shortlisting-repository";
 import { ShortlistingControl } from "@/components/admin/shortlisting-control";
+import { ADMIN_SESSION_COOKIE, getAdminSessionRole } from "@/lib/admin-auth";
 
 export async function generateMetadata({ params }: { params: Promise<{ teamId: string }> }): Promise<Metadata> {
   const data = await getTeamPageData((await params).teamId);
@@ -17,6 +19,8 @@ export async function generateMetadata({ params }: { params: Promise<{ teamId: s
 export default async function TeamPage({ params }: { params: Promise<{ teamId: string }> }) {
   const data = await getTeamPageData((await params).teamId);
   if (!data) notFound();
+  const cookieStore = await cookies();
+  const canResetReviews = (await getAdminSessionRole(cookieStore.get(ADMIN_SESSION_COOKIE)?.value)) === "super_admin";
   const { team, accessCode, venue, problemStatement: problem, judge, reviews } = data;
   const shortlisting = await getTeamShortlisting(team.id);
 
@@ -26,7 +30,7 @@ export default async function TeamPage({ params }: { params: Promise<{ teamId: s
       <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white"><div className="border-b border-zinc-200 px-5 py-4"><p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Official problem statement</p><div className="mt-2 flex items-start gap-3"><span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 font-mono text-[11px] font-semibold text-blue-700">{problem.code}</span><div><h2 className="text-base font-semibold text-zinc-950">{problem.title}</h2><p className="mt-2 max-w-4xl text-sm leading-6 text-zinc-600">{problem.description}</p></div></div></div><dl className="grid divide-y divide-zinc-100 bg-zinc-50/50 sm:grid-cols-3 sm:divide-x sm:divide-y-0"><div className="px-5 py-3.5"><dt className="flex items-center gap-1.5 text-[11px] text-zinc-400"><Landmark className="size-3" /> Organization / Ministry</dt><dd className="mt-1 text-xs font-medium text-zinc-700">{problem.organization}</dd></div><div className="px-5 py-3.5"><dt className="flex items-center gap-1.5 text-[11px] text-zinc-400"><Shapes className="size-3" /> Theme</dt><dd className="mt-1 text-xs font-medium text-zinc-700">{problem.theme}</dd></div><div className="px-5 py-3.5"><dt className="flex items-center gap-1.5 text-[11px] text-zinc-400"><Building2 className="size-3" /> Venue</dt><dd className="mt-1 text-xs font-medium text-zinc-700">{venue.name}, {venue.room}</dd></div></dl></section>
       <TeamMembersTable members={team.members} />
       {shortlisting ? <section className="flex flex-col justify-between gap-4 rounded-xl border border-zinc-200 bg-white p-5 sm:flex-row"><div><h2 className="text-sm font-semibold">Faculty shortlisting decision</h2><p className="mt-1 max-w-md text-xs leading-5 text-zinc-500">Private final decision, separate from evaluation marks. Available once this team completes Review 3. Changes require confirmation.</p></div><ShortlistingControl key={`${team.id}-${shortlisting.revision}`} teamId={team.id} teamCode={team.code} state={shortlisting} /></section> : null}
-      <section><div className="mb-3"><h2 className="text-sm font-semibold text-zinc-950">Evaluation reviews</h2><p className="mt-0.5 text-xs text-zinc-500">Rubric scores, judge feedback, and submission history for all rounds.</p></div><div className="space-y-4">{reviews.map(({ review, round, rubric, judge: reviewJudge, completedByJudge }) => <ReviewCard key={review.id} review={review} round={round} rubric={rubric} judge={reviewJudge} completedByJudge={completedByJudge} />)}</div></section>
+      <section><div className="mb-3"><h2 className="text-sm font-semibold text-zinc-950">Evaluation reviews</h2><p className="mt-0.5 text-xs text-zinc-500">Rubric scores, judge feedback, and submission history for all rounds.</p></div><div className="space-y-4">{reviews.map(({ review, round, rubric, judge: reviewJudge, completedByJudge }) => <ReviewCard key={review.id} review={review} round={round} rubric={rubric} judge={reviewJudge} completedByJudge={completedByJudge} canReset={canResetReviews} />)}</div></section>
     </div>
   );
 }
