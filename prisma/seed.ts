@@ -21,6 +21,7 @@ const statusMap = {
   pending: ReviewStatus.PENDING,
   in_progress: ReviewStatus.IN_PROGRESS,
   completed: ReviewStatus.COMPLETED,
+  absent: ReviewStatus.ABSENT,
 } as const;
 
 async function seed() {
