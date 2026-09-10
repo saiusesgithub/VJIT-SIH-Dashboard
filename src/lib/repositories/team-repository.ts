@@ -7,7 +7,7 @@ import { createTeamAccessLookup, DUMMY_TEAM_ACCESS_HASH, normalizeTeamAccessCode
 import type { TeamSessionPayload } from "@/lib/team-session";
 import type { ReviewStatus } from "@/types/domain";
 
-const statusMap = { PENDING: "pending", IN_PROGRESS: "in_progress", COMPLETED: "completed" } as const;
+const statusMap = { PENDING: "pending", IN_PROGRESS: "in_progress", COMPLETED: "completed", ABSENT: "absent" } as const;
 export const submissionTypes = [SubmissionType.GITHUB, SubmissionType.PRESENTATION, SubmissionType.DEMO, SubmissionType.PROTOTYPE, SubmissionType.VIDEO, SubmissionType.DOCUMENTATION] as const;
 export const submissionLabels: Record<(typeof submissionTypes)[number], string> = { GITHUB: "GitHub Repository", PRESENTATION: "Presentation / PPT", DEMO: "Demo URL", PROTOTYPE: "Prototype URL", VIDEO: "Demo Video", DOCUMENTATION: "Documentation" };
 

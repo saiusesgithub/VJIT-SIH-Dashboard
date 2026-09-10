@@ -50,6 +50,7 @@ const statusMap: Record<DbReviewStatus, ReviewStatus> = {
   PENDING: "pending",
   IN_PROGRESS: "in_progress",
   COMPLETED: "completed",
+  ABSENT: "absent",
 };
 
 function isSafeLookupId(value: string) {

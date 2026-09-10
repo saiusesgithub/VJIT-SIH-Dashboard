@@ -9,7 +9,7 @@ import { canJudgeEditCompletedReview, canJudgeWriteReview, type JudgeReviewAuthC
 import type { JudgeSessionPayload } from "@/lib/judge-session";
 import type { ReviewStatus as UiReviewStatus } from "@/types/domain";
 
-const statusMap: Record<ReviewStatus, UiReviewStatus> = { PENDING: "pending", IN_PROGRESS: "in_progress", COMPLETED: "completed" };
+const statusMap: Record<ReviewStatus, UiReviewStatus> = { PENDING: "pending", IN_PROGRESS: "in_progress", COMPLETED: "completed", ABSENT: "absent" };
 const DUMMY_JUDGE_PASSWORD_HASH = "$2b$10$D4e6tX/2CJeSQDbq3pqGxOvlY97Ha6A41l8PXlpsoT0l0mtiJpvZ2";
 function safeId(value: string) { return /^[a-z0-9-]{1,64}$/i.test(value); }
 
@@ -139,6 +139,26 @@ export async function startReview(session: JudgeSessionPayload, teamId: string, 
 
 export interface ReviewSubmission { scores: Array<{ rubricId: string; score: number }>; remarks: string; improvements: string; }
 function sameCompletedReview(review: { generalRemarks: string | null; improvements: string | null; scores: Array<{ rubricId: string; score: { toNumber(): number } }> }, submission: ReviewSubmission) { return (review.generalRemarks ?? "") === submission.remarks.trim() && (review.improvements ?? "") === submission.improvements.trim() && review.scores.length === submission.scores.length && submission.scores.every((score) => review.scores.some((current) => current.rubricId === score.rubricId && current.score.toNumber() === score.score)); }
+
+export async function markReviewAbsent(session: JudgeSessionPayload, teamId: string, roundId: string) {
+  if (!safeId(teamId) || !safeId(roundId)) return { ok: false as const, code: "invalid" as const };
+  return getDb().$transaction(async (tx) => {
+    const team = await tx.team.findFirst({ where: { id: teamId }, select: { id: true, venueId: true, hackathonId: true } });
+    if (!team) return { ok: false as const, code: "not_found" as const };
+    const [sessionAssignment, assignment, round] = await Promise.all([
+      tx.venueJudge.findFirst({ where: { id: session.assignmentId, judgeId: session.judgeId }, select: { id: true } }),
+      tx.venueJudge.findFirst({ where: { judgeId: session.judgeId, venueId: team.venueId }, select: { role: true } }),
+      tx.reviewRound.findFirst({ where: { id: roundId, hackathonId: team.hackathonId }, select: { id: true } }),
+    ]);
+    if (!sessionAssignment || !assignment || !round) return { ok: false as const, code: "not_found" as const };
+    const review = await tx.review.upsert({ where: { teamId_reviewRoundId: { teamId, reviewRoundId: roundId } }, create: { id: `review-${teamId}-${roundId}`, teamId, reviewRoundId: roundId, judgeId: session.judgeId, completedByJudgeId: session.judgeId, status: ReviewStatus.ABSENT, startedAt: new Date(), submittedAt: new Date() }, update: {}, include: { completedByJudge: { include: { venueAssignments: { where: { venueId: team.venueId }, take: 1 } } } } });
+    const context: JudgeReviewAuthContext = { reviewJudgeId: review.judgeId, reviewCompletedByJudgeId: review.completedByJudgeId, sessionJudgeId: session.judgeId, sessionJudgeRole: assignment.role.toLowerCase() as "external" | "internal", reviewCompletedByRole: review.completedByJudge?.venueAssignments[0]?.role.toLowerCase() as "external" | "internal" | undefined };
+    if (review.status === ReviewStatus.COMPLETED || !canJudgeWriteReview(context)) return { ok: false as const, code: "not_owner" as const };
+    await tx.reviewScore.deleteMany({ where: { reviewId: review.id } });
+    await tx.review.update({ where: { id: review.id }, data: { status: ReviewStatus.ABSENT, judgeId: session.judgeId, completedByJudgeId: session.judgeId, startedAt: review.startedAt ?? new Date(), submittedAt: new Date(), generalRemarks: "Team absent for this review.", improvements: null } });
+    return { ok: true as const };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
 
 export async function submitReview(session: JudgeSessionPayload, teamId: string, roundId: string, submission: ReviewSubmission) {
   if (!safeId(teamId) || !safeId(roundId) || submission.remarks.length > 5000 || submission.improvements.length > 5000) return { ok: false as const, code: "invalid" as const };

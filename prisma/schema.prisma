@@ -17,6 +17,7 @@ enum ReviewStatus {
   PENDING
   IN_PROGRESS
   COMPLETED
+  ABSENT
 }
 
 enum ShortlistingDecision {

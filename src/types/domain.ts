@@ -1,4 +1,4 @@
-export type ReviewStatus = "completed" | "in_progress" | "pending";
+export type ReviewStatus = "completed" | "in_progress" | "pending" | "absent";
 
 export interface Hackathon {
   id: string;

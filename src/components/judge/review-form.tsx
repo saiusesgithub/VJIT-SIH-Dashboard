@@ -26,6 +26,7 @@ export function ReviewForm({ judgeId, team, round, rubrics, initialScores, initi
   const [hydrated, setHydrated] = useState(false);
   const [savedAt, setSavedAt] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const [markingAbsent, setMarkingAbsent] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -86,6 +87,23 @@ export function ReviewForm({ judgeId, team, round, rubrics, initialScores, initi
     }
   }
 
+  async function markAbsent() {
+    if (submitting || markingAbsent || !window.confirm(`Mark ${team.code} absent for Review ${round.number}? This clears any entered scores for this review.`)) return;
+    setMarkingAbsent(true);
+    setError(undefined);
+    try {
+      const response = await fetch("/judge/reviews/absent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ teamId: team.id, roundId: round.id }) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Unable to mark team absent.");
+      try { localStorage.removeItem(draftKey); } catch { /* The server state is already persisted. */ }
+      router.replace(`/judge/teams/${team.id}`);
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to mark team absent.");
+      setMarkingAbsent(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <section className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
@@ -99,7 +117,8 @@ export function ReviewForm({ judgeId, team, round, rubrics, initialScores, initi
       <section className="space-y-4 rounded-xl border border-zinc-200 bg-white p-4"><div><label htmlFor="remarks" className="text-sm font-medium text-zinc-900">Remarks</label><textarea id="remarks" rows={4} maxLength={5000} value={remarks} onChange={(event) => setRemarks(event.target.value)} className="mt-2 w-full resize-y rounded-lg border border-zinc-300 px-3 py-2.5 text-sm leading-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="What is working well?" /></div><div><label htmlFor="improvements" className="text-sm font-medium text-zinc-900">Improvements / Suggestions</label><textarea id="improvements" rows={4} maxLength={5000} value={improvements} onChange={(event) => setImprovements(event.target.value)} className="mt-2 w-full resize-y rounded-lg border border-zinc-300 px-3 py-2.5 text-sm leading-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="What should the team improve next?" /></div></section>
       <div className="flex items-center justify-between gap-3 text-xs text-zinc-500"><span className="inline-flex items-center gap-1.5"><Save className="size-3.5" /> {savedAt ? `Draft saved locally ${new Date(savedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : "Draft saves on this device"}</span></div>
       {error ? <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"><p className="flex items-center gap-2 font-medium"><AlertCircle className="size-4" /> Submission failed</p><p className="mt-1 text-xs leading-5">{error} Your review is still saved on this device.</p></div> : null}
-      <button type="button" disabled={!valid || submitting} onClick={() => dialog.current?.showModal()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300">{submitting ? <Loader2 className="size-4 animate-spin" /> : error ? <AlertCircle className="size-4" /> : <Check className="size-4" />} {error ? "Retry submission" : editingCompleted ? `Save Review ${round.number} changes` : `Submit Review ${round.number}`}</button>
+      <button type="button" disabled={!valid || submitting || markingAbsent} onClick={() => dialog.current?.showModal()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300">{submitting ? <Loader2 className="size-4 animate-spin" /> : error ? <AlertCircle className="size-4" /> : <Check className="size-4" />} {error ? "Retry submission" : editingCompleted ? `Save Review ${round.number} changes` : `Submit Review ${round.number}`}</button>
+      {!editingCompleted ? <button type="button" disabled={submitting || markingAbsent} onClick={() => void markAbsent()} className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60">{markingAbsent ? <Loader2 className="size-4 animate-spin" /> : null}{markingAbsent ? "Marking absent…" : "Mark team absent for this review"}</button> : null}
       {!valid ? <p className="-mt-3 text-center text-xs text-zinc-500">Enter a valid score for every criterion to submit.</p> : null}
       <dialog ref={dialog} className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-xl border border-zinc-200 bg-white p-0 text-zinc-950 shadow-xl backdrop:bg-zinc-950/30"><div className="p-5"><h2 className="text-lg font-semibold">{editingCompleted ? `Save changes to Review ${round.number}?` : `Submit Review ${round.number}?`}</h2><p className="mt-2 text-sm text-zinc-600">Total: <strong className="text-zinc-950">{total} / {maximum}</strong></p><p className="mt-2 text-sm leading-6 text-zinc-500">{editingCompleted ? "This will replace your previously submitted scores and feedback." : "You can edit this review later, but only from the same judge account."}</p><div className="mt-5 flex gap-2"><button type="button" disabled={submitting} onClick={() => dialog.current?.close()} className="min-h-11 flex-1 rounded-lg border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50">Cancel</button><button type="button" disabled={submitting} onClick={() => void submit()} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white disabled:bg-zinc-400">{submitting ? <Loader2 className="size-4 animate-spin" /> : null} {editingCompleted ? "Save changes" : "Submit Review"}</button></div></div></dialog>
     </div>

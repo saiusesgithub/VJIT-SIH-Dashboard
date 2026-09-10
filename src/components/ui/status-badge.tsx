@@ -5,6 +5,7 @@ const config: Record<ReviewStatus, { label: string; dot: string; className: stri
   completed: { label: "Completed", dot: "bg-emerald-500", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
   in_progress: { label: "In Progress", dot: "bg-amber-500", className: "border-amber-200 bg-amber-50 text-amber-700" },
   pending: { label: "Pending", dot: "bg-zinc-400", className: "border-zinc-200 bg-zinc-50 text-zinc-600" },
+  absent: { label: "Absent", dot: "bg-red-500", className: "border-red-200 bg-red-50 text-red-700" },
 };
 
 export function StatusBadge({ status, compact = false }: { status: ReviewStatus; compact?: boolean }) {
