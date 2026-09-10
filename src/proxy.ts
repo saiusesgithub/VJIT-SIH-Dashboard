@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-auth";
+import { ADMIN_SESSION_COOKIE, getAdminSessionRole } from "@/lib/admin-auth";
 import { JUDGE_SESSION_COOKIE, verifyJudgeSessionToken } from "@/lib/judge-session";
 import { TEAM_SESSION_COOKIE, verifyTeamSessionToken } from "@/lib/team-session";
 
@@ -14,8 +14,13 @@ export async function proxy(request: NextRequest) {
 
   const cookieName = isTeamRoute ? TEAM_SESSION_COOKIE : isJudgeRoute ? JUDGE_SESSION_COOKIE : ADMIN_SESSION_COOKIE;
   const session = request.cookies.get(cookieName)?.value;
-  const valid = isTeamRoute ? Boolean(await verifyTeamSessionToken(session)) : isJudgeRoute ? Boolean(await verifyJudgeSessionToken(session)) : await verifyAdminSessionToken(session);
-  if (valid) return NextResponse.next();
+  const adminRole = !isTeamRoute && !isJudgeRoute ? await getAdminSessionRole(session) : null;
+  const valid = isTeamRoute ? Boolean(await verifyTeamSessionToken(session)) : isJudgeRoute ? Boolean(await verifyJudgeSessionToken(session)) : Boolean(adminRole);
+  if (valid) {
+    const isAdminWrite = !isTeamRoute && !isJudgeRoute && request.method !== "GET" && request.method !== "HEAD" && pathname !== "/admin/logout";
+    if (isAdminWrite && adminRole !== "super_admin" && pathname !== "/admin/reviews/reset") return new Response("Super-admin access required", { status: 403 });
+    return NextResponse.next();
+  }
 
   const loginUrl = new URL(isTeamRoute ? "/team/login" : isJudgeRoute ? "/judge/login" : "/admin/login", request.url);
   loginUrl.searchParams.set("returnTo", `${pathname}${search}`);

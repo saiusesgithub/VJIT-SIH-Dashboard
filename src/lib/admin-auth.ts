@@ -5,8 +5,11 @@ const encoder = new TextEncoder();
 export const ADMIN_SESSION_COOKIE = "sih_admin_session";
 export const ADMIN_SESSION_DURATION_SECONDS = 12 * 60 * 60;
 
+export type AdminRole = "faculty" | "super_admin";
+
 interface SessionPayload {
   scope: "admin";
+  role: AdminRole;
   expiresAt: number;
   nonce: string;
 }
@@ -20,15 +23,9 @@ async function digest(value: string) {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
 }
 
-export async function validateAdminPin(candidate: string) {
-  const configuredPin = process.env.ADMIN_PIN;
+async function matchesPin(candidate: string, configuredPin?: string) {
   if (!configuredPin || !candidate || candidate.length > 128) return false;
-
-  const [candidateDigest, configuredDigest] = await Promise.all([
-    digest(candidate),
-    digest(configuredPin),
-  ]);
-
+  const [candidateDigest, configuredDigest] = await Promise.all([digest(candidate), digest(configuredPin)]);
   let difference = 0;
   for (let index = 0; index < candidateDigest.length; index += 1) {
     difference |= candidateDigest[index] ^ configuredDigest[index];
@@ -36,24 +33,43 @@ export async function validateAdminPin(candidate: string) {
   return difference === 0;
 }
 
-export async function createAdminSessionToken() {
+export async function validateAdminPin(candidate: string): Promise<AdminRole | null> {
+  const [superAdmin, faculty] = await Promise.all([
+    matchesPin(candidate, process.env.SUPER_ADMIN_PIN),
+    matchesPin(candidate, process.env.ADMIN_PIN),
+  ]);
+  return superAdmin ? "super_admin" : faculty ? "faculty" : null;
+}
+
+export async function createAdminSessionToken(role: AdminRole = "faculty") {
   const secret = getSessionSecret();
   if (!secret) throw new Error("Admin session configuration is unavailable.");
 
   const payload: SessionPayload = {
     scope: "admin",
+    role,
     expiresAt: Date.now() + ADMIN_SESSION_DURATION_SECONDS * 1000,
     nonce: crypto.randomUUID(),
   };
   return createSignedToken(payload, secret);
 }
 
-export async function verifyAdminSessionToken(token?: string) {
+export async function getAdminSessionRole(token?: string): Promise<AdminRole | null> {
   const secret = getSessionSecret();
-  if (!secret || !token) return false;
+  if (!secret || !token) return null;
 
   const payload = await verifySignedToken<Partial<SessionPayload>>(token, secret);
-  return payload?.scope === "admin" && typeof payload.expiresAt === "number" && payload.expiresAt > Date.now() && typeof payload.nonce === "string";
+  if (payload?.scope !== "admin" || typeof payload.expiresAt !== "number" || payload.expiresAt <= Date.now() || typeof payload.nonce !== "string") return null;
+  // Legacy signed sessions from before roles were introduced remain read-only.
+  return payload.role === "super_admin" ? "super_admin" : "faculty";
+}
+
+export async function verifyAdminSessionToken(token?: string) {
+  return Boolean(await getAdminSessionRole(token));
+}
+
+export async function verifySuperAdminSessionToken(token?: string) {
+  return (await getAdminSessionRole(token)) === "super_admin";
 }
 
 export function adminSessionCookieOptions(expires: Date) {

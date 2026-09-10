@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-auth";
+import { ADMIN_SESSION_COOKIE, getAdminSessionRole } from "@/lib/admin-auth";
 import { getAdminShellData } from "@/lib/repositories/evaluation-repository";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +11,11 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
   const cookieStore = await cookies();
   const session = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
 
-  if (!(await verifyAdminSessionToken(session))) {
+  const role = await getAdminSessionRole(session);
+  if (!role) {
     redirect("/admin/login");
   }
 
   const data = await getAdminShellData();
-  return <AdminShell data={data}>{children}</AdminShell>;
+  return <AdminShell data={data} isSuperAdmin={role === "super_admin"}>{children}</AdminShell>;
 }

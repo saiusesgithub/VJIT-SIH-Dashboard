@@ -32,13 +32,14 @@ export async function POST(request: NextRequest) {
 
   const returnTo = sanitizeAdminRedirect(formData.get("returnTo"));
   const pin = formData.get("pin");
-  if (typeof pin !== "string" || !(await validateAdminPin(pin))) {
+  const role = typeof pin === "string" ? await validateAdminPin(pin) : null;
+  if (!role) {
     await failedLoginDelay();
     return loginRedirect(request, returnTo, "incorrect");
   }
 
   try {
-    const token = await createAdminSessionToken();
+    const token = await createAdminSessionToken(role);
     const expires = new Date(Date.now() + ADMIN_SESSION_DURATION_SECONDS * 1000);
     const response = NextResponse.redirect(new URL(returnTo, request.url), 303);
     response.cookies.set(ADMIN_SESSION_COOKIE, token, adminSessionCookieOptions(expires));
