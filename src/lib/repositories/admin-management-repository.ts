@@ -19,12 +19,13 @@ function isDuplicate(error: unknown) {
 
 export async function getAdminManagementData() {
   const current = await event();
-  if (!current) return { venues: [], judges: [] };
-  const [venues, judges] = await Promise.all([
+  if (!current) return { venues: [], judges: [], teams: [] };
+  const [venues, judges, teams] = await Promise.all([
     getDb().venue.findMany({ where: { hackathonId: current.id }, orderBy: { displayOrder: "asc" }, select: { id: true, code: true, name: true, roomNumber: true } }),
     getDb().judge.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, phone: true, designation: true } }),
+    getDb().team.findMany({ where: { hackathonId: current.id }, orderBy: { teamCode: "asc" }, select: { id: true, teamCode: true, teamName: true, venue: { select: { name: true, roomNumber: true } } } }),
   ]);
-  return { venues, judges };
+  return { venues, judges, teams };
 }
 
 export async function createVenue(input: Record<string, string>) {
@@ -78,6 +79,20 @@ export async function createTeam(input: Record<string, string>): Promise<Managem
     if (error instanceof Error && error.message === "INVALID_VENUE") return { ok: false, reason: "invalid" };
     if (isDuplicate(error)) return { ok: false, reason: "duplicate" };
     console.error("Unable to create team", error instanceof Error ? error.message : "unknown error");
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+export async function deleteTeam(input: { teamId: string; confirmation: string }): Promise<ManagementResult> {
+  const current = await event();
+  if (!current || !/^[a-z0-9-]{1,100}$/i.test(input.teamId)) return { ok: false, reason: "invalid" };
+  const team = await getDb().team.findFirst({ where: { id: input.teamId, hackathonId: current.id }, select: { id: true, teamCode: true } });
+  if (!team) return { ok: false, reason: "invalid" };
+  if (clean(input.confirmation).toUpperCase() !== team.teamCode.toUpperCase()) return { ok: false, reason: "invalid" };
+  try {
+    await getDb().team.delete({ where: { id: team.id } });
+    return { ok: true };
+  } catch {
     return { ok: false, reason: "unavailable" };
   }
 }
