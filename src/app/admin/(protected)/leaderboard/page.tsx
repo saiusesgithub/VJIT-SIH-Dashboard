@@ -13,13 +13,14 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const params = await searchParams;
   const venues = [...new Map(data.entries.map((row) => [row.venue.id, row.venue])).values()].sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
   const problems = [...new Map(data.entries.map((row) => [row.problem.id, row.problem])).values()].sort((a, b) => a.code.localeCompare(b.code));
+  const themes = [...new Set(data.entries.map((row) => row.problem.theme).filter((theme): theme is string => Boolean(theme)))].sort((a, b) => a.localeCompare(b));
   const venueId = typeof params.venue === "string" && venues.some((venue) => venue.id === params.venue) ? params.venue : "";
   const problemId = typeof params.problem === "string" && problems.some((problem) => problem.id === params.problem) ? params.problem : "";
   const decision = typeof params.decision === "string" && (params.decision === "UNDECIDED" || Object.hasOwn(decisionLabels, params.decision)) ? params.decision : "";
-  const entries = data.entries.filter((row) => (!venueId || row.venue.id === venueId) && (!problemId || row.problem.id === problemId) && (!decision || (decision === "UNDECIDED" ? row.shortlisting.decision === null : row.shortlisting.decision === decision)));
+  const theme = typeof params.theme === "string" && themes.includes(params.theme) ? params.theme : "";
+  const entries = data.entries.filter((row) => (!venueId || row.venue.id === venueId) && (!problemId || row.problem.id === problemId) && (!theme || row.problem.theme === theme) && (!decision || (decision === "UNDECIDED" ? row.shortlisting.decision === null : row.shortlisting.decision === decision)));
   const fullyEvaluated = data.entries.filter((row) => data.roundCount > 0 && row.completedReviews === data.roundCount).length;
   const shortlistedCount = data.entries.filter((row) => row.shortlisting.decision === "SHORTLISTED").length;
-  const themes = [...new Set(data.entries.map((row) => row.problem.theme).filter((theme): theme is string => Boolean(theme)))].sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="space-y-5">
@@ -42,9 +43,10 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
       <form action="/admin/leaderboard" method="get" className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="flex-1 text-xs font-medium text-zinc-600">Venue<select name="venue" defaultValue={venueId} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All venues</option>{venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name} · {venue.room}</option>)}</select></label>
         <label className="flex-1 text-xs font-medium text-zinc-600">Problem statement<select name="problem" defaultValue={problemId} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All problem statements</option>{problems.map((problem) => <option key={problem.id} value={problem.id}>{problem.code} · {problem.title}</option>)}</select></label>
+        <label className="flex-1 text-xs font-medium text-zinc-600">Theme<select name="theme" defaultValue={theme} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All themes</option>{themes.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
         <label className="text-xs font-medium text-zinc-600">Final decision<select name="decision" defaultValue={decision} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All decisions</option><option value="UNDECIDED">Not decided</option>{Object.entries(decisionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <button className="h-10 rounded-lg bg-zinc-950 px-4 text-xs font-semibold text-white transition-colors hover:bg-zinc-800">Apply filters</button>
-        {venueId || problemId || decision ? <Link href="/admin/leaderboard" className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-200 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50">Clear</Link> : null}
+        {venueId || problemId || theme || decision ? <Link href="/admin/leaderboard" className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-200 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50">Clear</Link> : null}
       </form>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -52,7 +54,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
           <div className="max-w-xl"><h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900"><Download className="size-4 text-zinc-500" /> Export public team list</h2><p className="mt-1 text-xs leading-5 text-zinc-500">Download the selected teams as Excel. It includes type, theme and final score, but never feedback, judge details or access credentials.</p></div>
           <form action="/admin/leaderboard/export" method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem_auto] lg:items-end">
             <label className="text-xs font-medium text-zinc-600">Teams to include<select name="scope" defaultValue="ranked" className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="ranked">Top-ranked teams</option><option value="shortlisted">Marked Shortlisted only ({shortlistedCount})</option></select></label>
-            <label className="text-xs font-medium text-zinc-600">Theme<select name="theme" defaultValue="" className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All themes</option>{themes.map((theme) => <option key={theme} value={theme}>{theme}</option>)}</select></label>
+            <label className="text-xs font-medium text-zinc-600">Theme<select name="theme" defaultValue={theme} className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600"><option value="">All themes</option>{themes.map((theme) => <option key={theme} value={theme}>{theme}</option>)}</select></label>
             <label className="text-xs font-medium text-zinc-600">Number of teams<input name="limit" type="number" min="1" max="500" required inputMode="numeric" placeholder="e.g. 25" className="mt-1.5 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm tabular-nums focus-visible:outline-2 focus-visible:outline-blue-600" /></label>
             <button type="submit" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"><Download className="size-4" /> Export Excel</button>
           </form>
