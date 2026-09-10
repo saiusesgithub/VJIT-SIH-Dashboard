@@ -13,7 +13,7 @@ export const submissionLabels: Record<(typeof submissionTypes)[number], string> 
 
 export async function authenticateTeamByAccessCode(rawCode: string) {
   const code = normalizeTeamAccessCode(rawCode);
-  if (!/^(?:DEV-T\d{3}|[A-HJ-NP-Z2-9-]{8,32})$/.test(code)) return null;
+  if (!/^(?:DEV-T\d{3}|SIH-[A-HJ-NP-Z2-9]{8}|[A-HJ-NP-Z2-9]{8,32})$/.test(code)) return null;
   const team = await getDb().team.findUnique({ where: { accessCodeLookup: createTeamAccessLookup(code) }, select: { id: true, teamCode: true, teamName: true, accessCodeHash: true } });
   const valid = await compare(code, team?.accessCodeHash ?? DUMMY_TEAM_ACCESS_HASH);
   return team && valid ? { id: team.id, code: team.teamCode, name: team.teamName } : null;
