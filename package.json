@@ -34,6 +34,7 @@
     "db:verify:registrations": "tsx scripts/verify-registration-import.ts",
     "db:verify:team-portal": "tsx scripts/verify-team-portal.ts",
     "db:day2-roster": "tsx scripts/apply-day2-roster.ts",
+    "db:day2-judges": "tsx scripts/apply-day2-judge-assignments.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {
