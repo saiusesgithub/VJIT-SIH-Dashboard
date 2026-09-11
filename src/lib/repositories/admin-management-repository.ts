@@ -8,7 +8,8 @@ import { normalizeJudgePhone } from "@/lib/judge-credentials";
 type ManagementResult = { ok: true } | { ok: false; reason: "invalid" | "duplicate" | "unavailable" };
 
 async function event() {
-  return getDb().hackathon.findFirst({ orderBy: { startDate: "desc" }, select: { id: true } });
+  return (await getDb().hackathon.findFirst({ where: { status: "LIVE" }, orderBy: { startDate: "desc" }, select: { id: true } }))
+    ?? getDb().hackathon.findFirst({ orderBy: { startDate: "desc" }, select: { id: true } });
 }
 
 const clean = (value: string | undefined) => value?.trim() ?? "";
@@ -47,24 +48,26 @@ export async function requalifyEliminatedTeam(input: { teamId: string; venueId: 
   const current = await event();
   if (!current || !/^[a-z0-9-]{1,100}$/i.test(input.teamId) || !/^[a-z0-9-]{1,100}$/i.test(input.venueId)) return { ok: false, reason: "invalid" };
 
-  const [team, venue] = await Promise.all([
-    getDb().team.findFirst({ where: { id: input.teamId, hackathonId: current.id }, select: { id: true, finalDecision: true } }),
-    getDb().venue.findFirst({ where: { id: input.venueId, hackathonId: current.id }, select: { id: true, code: true, name: true } }),
-  ]);
-  if (!team || team.finalDecision !== ShortlistingDecision.ELIMINATED || !venue || !isDayTwoVenue(venue)) return { ok: false, reason: "invalid" };
-
   try {
-    const result = await getDb().team.updateMany({
-      where: { id: team.id, finalDecision: ShortlistingDecision.ELIMINATED },
-      data: {
-        venueId: venue.id,
-        finalDecision: ShortlistingDecision.SHORTLISTED,
-        decisionUpdatedAt: new Date(),
-        decisionRevision: { increment: 1 },
-      },
-    });
-    return result.count === 1 ? { ok: true } : { ok: false, reason: "unavailable" };
-  } catch {
+    return await getDb().$transaction(async (tx) => {
+      const [team, venue] = await Promise.all([
+        tx.team.findFirst({ where: { id: input.teamId, hackathonId: current.id }, select: { id: true, finalDecision: true } }),
+        tx.venue.findFirst({ where: { id: input.venueId, hackathonId: current.id }, select: { id: true, code: true, name: true } }),
+      ]);
+      if (!team || team.finalDecision !== ShortlistingDecision.ELIMINATED || !venue || !isDayTwoVenue(venue)) return { ok: false as const, reason: "invalid" as const };
+      await tx.team.update({
+        where: { id: team.id },
+        data: {
+          venueId: venue.id,
+          finalDecision: ShortlistingDecision.SHORTLISTED,
+          decisionUpdatedAt: new Date(),
+          decisionRevision: { increment: 1 },
+        },
+      });
+      return { ok: true as const };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    console.error("Unable to restore eliminated team", error instanceof Error ? error.message : "unknown error");
     return { ok: false, reason: "unavailable" };
   }
 }

@@ -9,5 +9,5 @@ export async function POST(request: NextRequest) {
   const teamId = String(form.get("teamId") ?? "");
   const result = await requalifyEliminatedTeam({ teamId, venueId: String(form.get("venueId") ?? "") });
   const target = /^[a-z0-9-]{1,100}$/i.test(teamId) ? `/admin/teams/${teamId}` : "/admin";
-  return NextResponse.redirect(new URL(`${target}?requalification=${result.ok ? "restored" : "error"}`, request.url), 303);
+  return NextResponse.redirect(new URL(`${target}?requalification=${result.ok ? "restored" : result.reason}`, request.url), 303);
 }
