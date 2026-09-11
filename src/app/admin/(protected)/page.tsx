@@ -20,9 +20,9 @@ export default async function AdminOverviewPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-medium text-blue-700">Event operations</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">Hackathon overview</h1><p className="mt-1 text-sm text-zinc-500">A live summary of evaluations across all venues.</p></div><p className="text-xs text-zinc-400">Last refreshed · 10:31 AM</p></div>
       <section className="grid overflow-hidden rounded-xl border border-zinc-200 bg-white sm:grid-cols-2 xl:grid-cols-6">
         <MetricCard label="Total teams" value={String(teamCount)} detail="registered" icon={UsersRound} />
-        <MetricCard label="Review 1 completed" value={`${overall.rounds[0].completed} / ${teamCount}`} icon={CheckCheck} />
-        <MetricCard label="Review 2 completed" value={`${overall.rounds[1].completed} / ${teamCount}`} icon={ListChecks} />
-        <MetricCard label="Review 3 completed" value={`${overall.rounds[2].completed} / ${teamCount}`} icon={Layers3} />
+        <MetricCard label="Review 1 completed" value={`${overall.rounds[0]?.completed ?? 0} / ${overall.rounds[0]?.total ?? 0}`} icon={CheckCheck} />
+        <MetricCard label="Review 2 completed" value={`${overall.rounds[1]?.completed ?? 0} / ${overall.rounds[1]?.total ?? 0}`} detail="shortlisted teams" icon={ListChecks} />
+        <MetricCard label="Review 3 completed" value={`${overall.rounds[2]?.completed ?? 0} / ${overall.rounds[2]?.total ?? 0}`} detail="shortlisted teams" icon={Layers3} />
         <MetricCard label="Overall progress" value={`${overall.percentage}%`} detail={`${overall.completedReviews} reviews`} icon={Activity} />
         <MetricCard label="Open team issues" value={String(issueSummary.open)} detail={issueSummary.open ? `oldest ${issueSummary.oldestMinutes} min` : "all clear"} icon={MessageSquareWarning} />
       </section>

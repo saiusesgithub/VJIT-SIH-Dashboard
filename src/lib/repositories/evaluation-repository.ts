@@ -44,7 +44,7 @@ type VenueRecord = DbVenue & {
 
 type TeamRecord = DbTeam & { members: DbTeamMember[] };
 type ReviewRecord = DbReview & { scores?: Array<{ rubricId: string; score: { toNumber(): number } }> };
-type ProgressTeam = { id: string; venueId: string; reviews: Array<{ reviewRoundId: string; status: DbReviewStatus }> };
+type ProgressTeam = { id: string; venueId: string; finalDecision?: string | null; reviews: Array<{ reviewRoundId: string; status: DbReviewStatus }> };
 
 const statusMap: Record<DbReviewStatus, ReviewStatus> = {
   PENDING: "pending",
@@ -152,10 +152,11 @@ function mapReview(record: ReviewRecord): Review {
 }
 
 function calculateRoundProgress(round: ReviewRound, teams: ProgressTeam[]): ReviewProgress {
-  const matching = teams.flatMap((team) => team.reviews.filter((review) => review.reviewRoundId === round.id));
+  const eligibleTeams = round.number >= 2 ? teams.filter((team) => team.finalDecision === "SHORTLISTED") : teams;
+  const matching = eligibleTeams.flatMap((team) => team.reviews.filter((review) => review.reviewRoundId === round.id));
   const completed = matching.filter((review) => review.status === DbReviewStatus.COMPLETED).length;
   const inProgress = matching.filter((review) => review.status === DbReviewStatus.IN_PROGRESS).length;
-  const total = teams.length;
+  const total = eligibleTeams.length;
   return {
     round,
     completed,
@@ -169,7 +170,7 @@ function calculateRoundProgress(round: ReviewRound, teams: ProgressTeam[]): Revi
 function calculateOverall(rounds: ReviewRound[], teams: ProgressTeam[]): OverallProgress {
   const progress = rounds.map((round) => calculateRoundProgress(round, teams));
   const completedReviews = progress.reduce((sum, round) => sum + round.completed, 0);
-  const totalReviews = teams.length * rounds.length;
+  const totalReviews = progress.reduce((sum, round) => sum + round.total, 0);
   return {
     rounds: progress,
     completedReviews,
@@ -211,6 +212,7 @@ const getProgressSource = cache(async () => {
       select: {
         id: true,
         venueId: true,
+        finalDecision: true,
         reviews: { select: { reviewRoundId: true, status: true } },
       },
     }),
@@ -235,6 +237,7 @@ const getAdminBaseData = cache(async () => {
         teamName: true,
         venueId: true,
         problemStatementId: true,
+        finalDecision: true,
         reviews: {
           select: {
             id: true,
@@ -261,6 +264,7 @@ const getAdminBaseData = cache(async () => {
   const teams: ProgressTeam[] = record.teams.map((team) => ({
     id: team.id,
     venueId: team.venueId,
+    finalDecision: team.finalDecision,
     reviews: team.reviews.map((review) => ({ reviewRoundId: review.reviewRoundId, status: review.status })),
   }));
   const currentlyReviewing: ActiveReview[] = record.teams
@@ -467,7 +471,7 @@ export const evaluationRepository: EvaluationRepository = {
     if (!record) return null;
     const venue = mapVenue(record);
     const rounds = roundRecords.map(mapRound);
-    const progressTeams: ProgressTeam[] = record.teams.map((team) => ({ id: team.id, venueId: team.venueId, reviews: team.reviews.map((review) => ({ reviewRoundId: review.reviewRoundId, status: review.status })) }));
+    const progressTeams: ProgressTeam[] = record.teams.map((team) => ({ id: team.id, venueId: team.venueId, finalDecision: team.finalDecision, reviews: team.reviews.map((review) => ({ reviewRoundId: review.reviewRoundId, status: review.status })) }));
     const items: TeamListItem[] = record.teams.map((team) => {
       const mappedReviews = team.reviews.map(mapReview);
       const latestActivity = mappedReviews.flatMap((review) => [review.submittedAt, review.startedAt]).filter((value): value is string => Boolean(value)).sort().at(-1);

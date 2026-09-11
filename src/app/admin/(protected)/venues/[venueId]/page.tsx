@@ -19,15 +19,16 @@ export default async function VenuePage({ params }: { params: Promise<{ venueId:
   const { venue, progress, teams } = data;
   const codes = venue.problemStatementIds.map((id) => id.toUpperCase());
   const allocation = venue.teamCodeRange ?? (codes.length ? rangeLabel(codes) : "Team roster pending");
+  const isDay2 = venue.id.startsWith("venue-day2-");
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex items-center gap-2 text-xs font-medium text-blue-700"><DoorOpen className="size-3.5" /> Venue operations</div><h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-zinc-950">{venue.name}</h1><p className="mt-1 text-sm text-zinc-500">Room {venue.room} · {allocation}</p></div><div className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 sm:w-48"><div className="mb-2 flex justify-between text-[11px]"><span className="text-zinc-500">Venue completion</span><span className="font-semibold tabular-nums text-zinc-800">{progress.percentage}%</span></div><ProgressBar value={progress.percentage} /></div></div>
       <section className="grid overflow-hidden rounded-xl border border-zinc-200 bg-white sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Total teams" value={String(progress.teamCount)} icon={UsersRound} />
-        <MetricCard label="Review 1" value={`${progress.rounds[0].completed} / ${progress.teamCount}`} icon={CheckCheck} />
-        <MetricCard label="Review 2" value={`${progress.rounds[1].completed} / ${progress.teamCount}`} icon={ListChecks} />
-        <MetricCard label="Review 3" value={`${progress.rounds[2].completed} / ${progress.teamCount}`} icon={Layers3} />
+        <MetricCard label="Review 1" value={`${progress.rounds[0]?.completed ?? 0} / ${progress.rounds[0]?.total ?? 0}`} icon={CheckCheck} />
+        <MetricCard label="Review 2" value={isDay2 ? `${progress.rounds[1]?.completed ?? 0} / ${progress.rounds[1]?.total ?? 0}` : "—"} detail={isDay2 ? "shortlisted teams" : "Not scheduled"} icon={ListChecks} />
+        <MetricCard label="Review 3" value={isDay2 ? `${progress.rounds[2]?.completed ?? 0} / ${progress.rounds[2]?.total ?? 0}` : "—"} detail={isDay2 ? "shortlisted teams" : "Not scheduled"} icon={Layers3} />
         <MetricCard label="Overall" value={`${progress.percentage}%`} detail={`${progress.completedReviews} reviews`} icon={Activity} />
       </section>
       <section className="grid overflow-hidden rounded-xl border border-zinc-200 bg-white lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">

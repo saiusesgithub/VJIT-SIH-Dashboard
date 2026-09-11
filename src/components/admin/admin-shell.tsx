@@ -32,9 +32,14 @@ function VenueNavigation({ data, pathname, onNavigate }: { data: AdminShellData;
           <ChevronRight className={cn("size-3.5 transition-transform duration-150", active ? "text-zinc-600" : "text-zinc-300 group-hover:translate-x-0.5 group-hover:text-zinc-500")} />
         </div>
         <p className="mt-0.5 truncate text-xs text-zinc-500">{venue.room} · {venue.teamCodeRange ?? rangeLabel(venue.problemStatementIds.map((id) => id.toUpperCase()))}</p>
-        <div className="mt-2.5 flex items-center gap-2">
-          <ProgressBar value={progress.percentage} className="flex-1" />
-          <span className="w-7 text-right text-[11px] font-medium tabular-nums text-zinc-500">{progress.percentage}%</span>
+        <div className="mt-2.5 space-y-1.5">
+          {(venue.id.startsWith("venue-day2-")
+            ? progress.rounds.filter((round) => round.round.number >= 2)
+            : progress.rounds.filter((round) => round.round.number === 1)
+          ).map((round) => <div key={round.round.id}>
+            <div className="mb-1 flex items-center justify-between text-[10px] text-zinc-500"><span>Review {round.round.number}</span><span className="tabular-nums">{round.percentage}%</span></div>
+            <ProgressBar value={round.percentage} className="w-full" />
+          </div>)}
         </div>
         <p className="mt-1.5 text-[11px] text-zinc-400">{progress.teamCount} loaded{venue.plannedTeamCount != null ? ` · ${venue.plannedTeamCount} planned` : ""}</p>
       </Link>
