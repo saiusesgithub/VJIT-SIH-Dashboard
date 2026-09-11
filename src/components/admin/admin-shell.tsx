@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Building2, ChartColumn, ChevronDown, ChevronRight, Eye, FileSpreadsheet, Link2, LockKeyhole, Menu, MessageSquareWarning, QrCode, RefreshCw, Scale, Settings2, Trophy, UserRound, X } from "lucide-react";
+import { Bell, Building2, ChartColumn, ChevronDown, ChevronRight, Eye, FileSpreadsheet, Link2, LockKeyhole, Mail, Menu, MessageSquareWarning, QrCode, RefreshCw, Scale, Settings2, Trophy, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { rangeLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -99,6 +99,7 @@ const operationLinks = [
   { href: "/admin/submissions", label: "Submissions", icon: Link2 },
   { href: "/admin/announcements", label: "Announcements", icon: Bell },
   { href: "/admin/issues", label: "Team issues", icon: MessageSquareWarning },
+  { href: "/admin/communications", label: "Team emails", icon: Mail },
 ] as const;
 
 function OperationsNavigation({ pathname, onNavigate, isSuperAdmin }: { pathname: string; onNavigate?: () => void; isSuperAdmin: boolean }) {
@@ -106,7 +107,7 @@ function OperationsNavigation({ pathname, onNavigate, isSuperAdmin }: { pathname
     <div className="border-b border-zinc-200 px-3 pb-4">
       <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Operations</p>
       <nav className="space-y-1" aria-label="Event operations">
-        {operationLinks.filter((item) => item.href !== "/admin/manage" || isSuperAdmin).map(({ href, label, icon: Icon }) => (
+        {operationLinks.filter((item) => (item.href !== "/admin/manage" && item.href !== "/admin/communications") || isSuperAdmin).map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} onClick={onNavigate} className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors", pathname.startsWith(href) ? "bg-white font-medium text-zinc-950" : "text-zinc-600 hover:bg-white hover:text-zinc-900")}>
             <Icon className="size-4" /> {label}
           </Link>

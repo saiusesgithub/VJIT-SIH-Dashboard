@@ -1,6 +1,7 @@
 import "server-only";
 import { AnnouncementAudience, IssueCategory, IssueStatus, SubmissionType } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
+import { decryptTeamAccessCode } from "@/lib/team-access-encryption";
 
 async function currentHackathon() { return (await getDb().hackathon.findFirst({ where: { status: "LIVE" }, orderBy: { startDate: "desc" } })) ?? getDb().hackathon.findFirst({ orderBy: { startDate: "desc" } }); }
 
@@ -9,6 +10,16 @@ export async function setFeedbackVisibility(roundId: string, visible: boolean) {
 
 export const standardSubmissionTypes = [SubmissionType.GITHUB, SubmissionType.PRESENTATION, SubmissionType.DEMO, SubmissionType.PROTOTYPE, SubmissionType.VIDEO, SubmissionType.DOCUMENTATION] as const;
 export async function getSubmissionOverview() { const event = await currentHackathon(); if (!event) return []; const teams = await getDb().team.findMany({ where: { hackathonId: event.id }, include: { venue: true, submissions: true }, orderBy: { teamCode: "asc" } }); return teams.map((team) => ({ id: team.id, code: team.teamCode, name: team.teamName, venue: team.venue.name, submitted: new Set(team.submissions.map((item) => item.type)) })); }
+
+export async function getTeamLeadMailMerge() {
+  const event = await currentHackathon();
+  if (!event) return [];
+  const teams = await getDb().team.findMany({ where: { hackathonId: event.id }, orderBy: { teamCode: "asc" }, select: { teamCode: true, teamName: true, accessCodeEncrypted: true, members: { select: { name: true, email: true, role: true }, orderBy: { id: "asc" } } } });
+  return teams.map((team) => {
+    const lead = team.members.find((member) => member.email && /leader/i.test(member.role ?? "")) ?? team.members.find((member) => member.email);
+    return { code: team.teamCode, name: team.teamName, leadName: lead?.name ?? "Team lead", email: lead?.email ?? null, accessCode: decryptTeamAccessCode(team.accessCodeEncrypted) };
+  });
+}
 
 export async function getAdminAnnouncements() { const event = await currentHackathon(); if (!event) return { venues: [], announcements: [] }; const [venues, announcements] = await Promise.all([getDb().venue.findMany({ where: { hackathonId: event.id }, orderBy: { displayOrder: "asc" }, select: { id: true, name: true, roomNumber: true } }), getDb().announcement.findMany({ where: { hackathonId: event.id }, include: { venue: true }, orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }] })]); return { venues, announcements }; }
 export async function createAnnouncement(input: { title: string; message: string; audience: string; venueId?: string; expiresAt?: string }) { const event = await currentHackathon(); if (!event || !Object.values(AnnouncementAudience).includes(input.audience as AnnouncementAudience) || input.title.trim().length < 3 || input.title.trim().length > 120 || input.message.trim().length < 3 || input.message.trim().length > 3000) return false; const audience = input.audience as AnnouncementAudience; const venueId = audience === AnnouncementAudience.VENUE ? input.venueId : null; if (audience === AnnouncementAudience.VENUE && !venueId) return false; if (venueId && !(await getDb().venue.findFirst({ where: { id: venueId, hackathonId: event.id }, select: { id: true } }))) return false; const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null; if (expiresAt && Number.isNaN(expiresAt.valueOf())) return false; await getDb().announcement.create({ data: { id: crypto.randomUUID(), hackathonId: event.id, title: input.title.trim(), message: input.message.trim(), audience, venueId, expiresAt } }); return true; }
