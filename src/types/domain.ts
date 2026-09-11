@@ -195,6 +195,7 @@ export interface TeamReviewDetail {
 
 export interface TeamPageData {
   team: Team;
+  finalDecision: "SHORTLISTED" | "HOLD" | "ELIMINATED" | null;
   accessCode: string | null;
   venue: Venue;
   problemStatement: ProblemStatement;

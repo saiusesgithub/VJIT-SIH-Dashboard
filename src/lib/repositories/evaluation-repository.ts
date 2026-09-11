@@ -501,6 +501,7 @@ export const evaluationRepository: EvaluationRepository = {
     const primaryJudge = record.venue.judgeAssignments[0]?.judge ? mapJudge(record.venue.judgeAssignments[0].judge, venue.id, record.venue.judgeAssignments[0].role) : unassignedJudge(venue.id);
     return {
       team: mapTeam(record),
+      finalDecision: record.finalDecision,
       accessCode: decryptTeamAccessCode(record.accessCodeEncrypted),
       venue,
       problemStatement: mapProblemStatement(record.problemStatement),
