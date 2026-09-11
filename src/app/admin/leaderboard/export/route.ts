@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   if (!data.event) return new Response("No hackathon is available", { status: 404 });
   const entries = selectLeaderboardExportEntries(data.entries, options);
   const generatedAt = new Date();
-  const workbook = await createLeaderboardWorkbook({ eventName: data.event.name, roundCount: data.roundCount, generatedAt, options, entries });
+  const workbook = await createLeaderboardWorkbook({ eventName: data.event.name, roundCount: data.roundCount, maximumScore: data.maximumScore, generatedAt, options, entries });
   const suffix = options.limit === null ? "all" : `top-${options.limit}`;
   const themeSuffix = options.theme ? `-${options.theme.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}` : "";
   const filename = `vjit-sih-${options.scope}${themeSuffix}-${suffix}.xlsx`;

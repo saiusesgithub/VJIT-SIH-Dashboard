@@ -34,6 +34,13 @@ function totalFor(team: FinalReportRow, rounds: FinalReportRound[]): DisplayScor
   return totals.reduce<number>((sum, total) => sum + (total as number), 0);
 }
 
+function percentageFor(team: FinalReportRow, rounds: FinalReportRound[]): DisplayScore {
+  const total = totalFor(team, rounds);
+  if (typeof total !== "number") return total;
+  const maximum = rounds.reduce((sum, round) => sum + round.maximumScore, 0);
+  return maximum ? total / maximum : 0;
+}
+
 export async function createFinalReportWorkbook(input: { eventName: string; rounds: FinalReportRound[]; teams: FinalReportRow[]; generatedAt: Date }) {
   const templateRound = input.rounds[0];
   const criteria = templateRound?.criteria ?? [];
@@ -50,7 +57,9 @@ export async function createFinalReportWorkbook(input: { eventName: string; roun
     views: [{ state: "frozen", ySplit: 4, showGridLines: false }],
   });
 
-  const lastColumn = 3 + criteria.length + 2;
+  const totalColumn = 3 + criteria.length + 2;
+  const percentageColumn = totalColumn + 1;
+  const lastColumn = percentageColumn;
   const lastLetter = sheet.getColumn(lastColumn).letter;
   sheet.mergeCells(`A1:${lastLetter}1`);
   sheet.getCell("A1").value = safeText(input.eventName);
@@ -64,7 +73,7 @@ export async function createFinalReportWorkbook(input: { eventName: string; roun
   sheet.getCell("A3").value = "- = absent or eliminated. Blank cells indicate a review that has not been completed.";
   sheet.getCell("A3").font = { name: "Arial", size: 9, italic: true, color: { argb: "FF71717A" } };
 
-  const headers = ["S.No.", "TEAM ID", "Review", ...criteria.map((criterion) => `${criterion.name} (${criterion.maxMarks}M)`), `Score / ${rubricMaximum}`, `Total score / ${grandMaximum}`];
+  const headers = ["S.No.", "TEAM ID", "Review", ...criteria.map((criterion) => `${criterion.name} (${criterion.maxMarks}M)`), `Score / ${rubricMaximum}`, `Total score / ${grandMaximum}`, "Percentage"];
   sheet.getRow(4).values = headers;
   sheet.getRow(4).height = 46;
   sheet.getRow(4).eachCell((cell) => {
@@ -79,7 +88,7 @@ export async function createFinalReportWorkbook(input: { eventName: string; roun
     const endRow = startRow + Math.max(input.rounds.length, 1) - 1;
     for (const [roundIndex, round] of input.rounds.entries()) {
       const row = sheet.getRow(startRow + roundIndex);
-      row.values = [teamIndex + 1, safeText(team.code), `R${round.number}`, ...criteria.map((criterion, criterionIndex) => scoreFor(team, round, round.criteria[criterionIndex]?.id ?? criterion.id)), roundTotalFor(team, round), totalFor(team, input.rounds)];
+      row.values = [teamIndex + 1, safeText(team.code), `R${round.number}`, ...criteria.map((criterion, criterionIndex) => scoreFor(team, round, round.criteria[criterionIndex]?.id ?? criterion.id)), roundTotalFor(team, round), totalFor(team, input.rounds), percentageFor(team, input.rounds)];
       row.height = 23;
       row.eachCell((cell) => {
         cell.font = { name: "Arial", size: 10, color: { argb: "FF27272A" } };
@@ -88,7 +97,7 @@ export async function createFinalReportWorkbook(input: { eventName: string; roun
       });
       row.getCell(2).numFmt = "@";
     }
-    const totalCell = sheet.getCell(startRow, lastColumn);
+    const totalCell = sheet.getCell(startRow, totalColumn);
     totalCell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF18181B" } };
     totalCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F4F5" } };
     totalCell.alignment = { horizontal: "center", vertical: "middle" };
@@ -97,11 +106,12 @@ export async function createFinalReportWorkbook(input: { eventName: string; roun
       // later `row.values` assignment touches a merged cell.
       sheet.mergeCells(startRow, 1, endRow, 1);
       sheet.mergeCells(startRow, 2, endRow, 2);
-      sheet.mergeCells(startRow, lastColumn, endRow, lastColumn);
+      sheet.mergeCells(startRow, totalColumn, endRow, totalColumn);
     }
   });
 
-  [8, 16, 9, ...criteria.map(() => 18), 13, 16].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  [8, 16, 9, ...criteria.map(() => 18), 13, 16, 12].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  for (let rowNumber = 5; rowNumber <= sheet.rowCount; rowNumber += 1) sheet.getRow(rowNumber).getCell(percentageColumn).numFmt = "0.00%";
   sheet.autoFilter = { from: "A4", to: `${lastLetter}4` };
   sheet.headerFooter.oddFooter = "VJIT SIH Internal Hackathon · Final evaluation report";
   return new Uint8Array(await workbook.xlsx.writeBuffer());

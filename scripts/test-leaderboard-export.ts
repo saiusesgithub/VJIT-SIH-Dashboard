@@ -26,7 +26,7 @@ test("selection supports top X ranked teams and faculty-shortlisted teams", () =
 
 test("generated workbook is readable, styled, typed and formula-injection safe", async () => {
   const bytes = await createLeaderboardWorkbook({
-    eventName: "VJIT SIH Internal Hackathon", roundCount: 3, generatedAt: new Date("2026-08-21T10:27:00.000Z"),
+    eventName: "VJIT SIH Internal Hackathon", roundCount: 3, maximumScore: 100, generatedAt: new Date("2026-08-21T10:27:00.000Z"),
     options: { scope: "ranked", limit: 10, theme: null }, entries: [entry(1, "SHORTLISTED", "=HYPERLINK(\"https://evil.example\")")],
   });
   assert.deepEqual([...bytes.subarray(0, 2)], [0x50, 0x4b]);
@@ -39,6 +39,7 @@ test("generated workbook is readable, styled, typed and formula-injection safe",
   assert.equal(sheet.getCell("D6").value, "Software");
   assert.equal(sheet.getCell("E6").value, "Smart Automation");
   assert.equal(sheet.getCell("J6").value, 86);
-  assert.equal(sheet.getCell("L6").value, "Shortlisted");
+  assert.equal(sheet.getCell("K6").value, 0.86);
+  assert.equal(sheet.getCell("M6").value, "Shortlisted");
   assert.ok(sheet.autoFilter);
 });

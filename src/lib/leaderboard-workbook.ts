@@ -9,6 +9,7 @@ function safeText(value: string) {
 export async function createLeaderboardWorkbook(input: {
   eventName: string;
   roundCount: number;
+  maximumScore: number;
   generatedAt: Date;
   options: LeaderboardExportOptions;
   entries: LeaderboardExportEntry[];
@@ -23,12 +24,12 @@ export async function createLeaderboardWorkbook(input: {
     views: [{ state: "frozen", ySplit: 5 }],
   });
   sheet.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
-  sheet.mergeCells("A1:L1");
+  sheet.mergeCells("A1:M1");
   sheet.getCell("A1").value = safeText(input.eventName);
   sheet.getCell("A1").font = { name: "Arial", size: 16, bold: true, color: { argb: "FF18181B" } };
   sheet.getCell("A1").alignment = { vertical: "middle" };
   sheet.getRow(1).height = 28;
-  sheet.mergeCells("A2:L2");
+  sheet.mergeCells("A2:M2");
   const basis = input.options.scope === "shortlisted" ? "Faculty-shortlisted teams" : "Top-ranked teams";
   const count = input.options.limit === null ? "All" : `Top ${input.options.limit}`;
   sheet.getCell("A2").value = `${count} · ${basis}${input.options.theme ? ` · ${input.options.theme}` : ""}`;
@@ -38,7 +39,7 @@ export async function createLeaderboardWorkbook(input: {
   sheet.getCell("B4").numFmt = "dd mmm yyyy, hh:mm AM/PM";
   sheet.getRow(4).font = { name: "Arial", size: 9, color: { argb: "FF71717A" } };
 
-  const headers = ["Overall rank", "Team ID", "Team name", "Type", "Theme", "Problem code", "Problem statement", "Venue", "Room", "Final score", "Review progress", "Final decision"];
+  const headers = ["Overall rank", "Team ID", "Team name", "Type", "Theme", "Problem code", "Problem statement", "Venue", "Room", "Final score", "Percentage", "Review progress", "Final decision"];
   sheet.getRow(5).values = headers;
   sheet.getRow(5).height = 27;
   sheet.getRow(5).eachCell((cell) => {
@@ -59,12 +60,13 @@ export async function createLeaderboardWorkbook(input: {
       safeText(entry.venue.name),
       safeText(entry.venue.room),
       entry.totalScore,
+      input.maximumScore ? entry.totalScore / input.maximumScore : 0,
       `${entry.completedReviews} / ${input.roundCount}`,
       entry.shortlisting.decision ? decisionLabels[entry.shortlisting.decision] : "Not decided",
     ]);
   }
   const lastRow = Math.max(5, sheet.rowCount);
-  sheet.autoFilter = { from: "A5", to: "L5" };
+  sheet.autoFilter = { from: "A5", to: "M5" };
   for (let rowNumber = 6; rowNumber <= lastRow; rowNumber += 1) {
     const row = sheet.getRow(rowNumber);
     row.font = { name: "Arial", size: 10, color: { argb: "FF27272A" } };
@@ -75,9 +77,10 @@ export async function createLeaderboardWorkbook(input: {
     row.getCell(5).alignment = { wrapText: true, vertical: "middle" };
     row.getCell(7).alignment = { wrapText: true, vertical: "middle" };
     row.getCell(10).numFmt = "0.00";
+    row.getCell(11).numFmt = "0.00%";
     row.height = 28;
   }
-  [12, 12, 24, 14, 26, 14, 38, 15, 12, 13, 16, 17].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  [12, 12, 24, 14, 26, 14, 38, 15, 12, 13, 13, 16, 17].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   sheet.getColumn(2).numFmt = "@";
   sheet.getColumn(6).numFmt = "@";
   sheet.headerFooter.oddFooter = "VJIT SIH Internal Hackathon · Public team selection";
