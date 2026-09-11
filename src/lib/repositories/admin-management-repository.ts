@@ -1,7 +1,7 @@
 import "server-only";
 
 import { hash } from "bcryptjs";
-import { Prisma, VenueJudgeRole } from "@/generated/prisma/client";
+import { Prisma, ShortlistingDecision, VenueJudgeRole } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
 import { normalizeJudgePhone } from "@/lib/judge-credentials";
 
@@ -12,6 +12,10 @@ async function event() {
 }
 
 const clean = (value: string | undefined) => value?.trim() ?? "";
+
+function isDayTwoVenue(venue: { id: string; code: string; name: string }) {
+  return venue.id.startsWith("venue-day2-") || /^day2/i.test(venue.code) || /^day\s*2/i.test(venue.name);
+}
 
 function isDuplicate(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
@@ -26,6 +30,43 @@ export async function getAdminManagementData() {
     getDb().team.findMany({ where: { hackathonId: current.id }, orderBy: { teamCode: "asc" }, select: { id: true, teamCode: true, teamName: true, venue: { select: { name: true, roomNumber: true } } } }),
   ]);
   return { venues, judges, teams };
+}
+
+export async function getRequalificationVenueOptions() {
+  const current = await event();
+  if (!current) return [];
+  const venues = await getDb().venue.findMany({
+    where: { hackathonId: current.id },
+    select: { id: true, code: true, name: true, roomNumber: true },
+    orderBy: { displayOrder: "asc" },
+  });
+  return venues.filter(isDayTwoVenue).map(({ id, name, roomNumber }) => ({ id, name, roomNumber }));
+}
+
+export async function requalifyEliminatedTeam(input: { teamId: string; venueId: string }): Promise<ManagementResult> {
+  const current = await event();
+  if (!current || !/^[a-z0-9-]{1,100}$/i.test(input.teamId) || !/^[a-z0-9-]{1,100}$/i.test(input.venueId)) return { ok: false, reason: "invalid" };
+
+  const [team, venue] = await Promise.all([
+    getDb().team.findFirst({ where: { id: input.teamId, hackathonId: current.id }, select: { id: true, finalDecision: true } }),
+    getDb().venue.findFirst({ where: { id: input.venueId, hackathonId: current.id }, select: { id: true, code: true, name: true } }),
+  ]);
+  if (!team || team.finalDecision !== ShortlistingDecision.ELIMINATED || !venue || !isDayTwoVenue(venue)) return { ok: false, reason: "invalid" };
+
+  try {
+    const result = await getDb().team.updateMany({
+      where: { id: team.id, finalDecision: ShortlistingDecision.ELIMINATED },
+      data: {
+        venueId: venue.id,
+        finalDecision: ShortlistingDecision.SHORTLISTED,
+        decisionUpdatedAt: new Date(),
+        decisionRevision: { increment: 1 },
+      },
+    });
+    return result.count === 1 ? { ok: true } : { ok: false, reason: "unavailable" };
+  } catch {
+    return { ok: false, reason: "unavailable" };
+  }
 }
 
 export async function createVenue(input: Record<string, string>) {
