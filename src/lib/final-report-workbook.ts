@@ -9,7 +9,9 @@ function safeText(value: string) {
 }
 
 function scoreFor(team: FinalReportRow, round: FinalReportRound, criterionId: string): DisplayScore {
-  if (team.finalDecision === ShortlistingDecision.ELIMINATED) return "-";
+  // An eliminated team can still have a valid Review 1 result. Preserve that
+  // score in the report; only later rounds are unavailable after elimination.
+  if (team.finalDecision === ShortlistingDecision.ELIMINATED && round.number > 1) return "-";
   const review = team.reviews.get(round.id);
   if (review?.status === "ABSENT") return "-";
   if (review?.status !== "COMPLETED") return "";
@@ -17,7 +19,7 @@ function scoreFor(team: FinalReportRow, round: FinalReportRound, criterionId: st
 }
 
 function roundTotalFor(team: FinalReportRow, round: FinalReportRound): DisplayScore {
-  if (team.finalDecision === ShortlistingDecision.ELIMINATED) return "-";
+  if (team.finalDecision === ShortlistingDecision.ELIMINATED && round.number > 1) return "-";
   const review = team.reviews.get(round.id);
   if (review?.status === "ABSENT") return "-";
   if (review?.status !== "COMPLETED") return "";
