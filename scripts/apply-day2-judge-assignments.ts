@@ -18,8 +18,8 @@ type JudgeAssignment = {
 };
 
 // Transcribed from SIH_DAY2_VENUES.xlsx - Sheet1-1.pdf. Known stable IDs are
-// used where available; the two names not present in the original seed data are
-// resolved against their exact name in the database and must have credentials.
+// used where available. The S-201 PDF label was corrected by the coordinator to
+// Mr. Mohammed Adil, who is already present in the original credential roster.
 const day2Assignments: Array<{ room: string; judges: JudgeAssignment[] }> = [
   { room: "C-201", judges: [{ judgeId: "external-chaithanya", role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-phanindra", role: VenueJudgeRole.INTERNAL }] },
   { room: "C-203", judges: [{ judgeId: "external-harshitha", role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-tarangini", role: VenueJudgeRole.INTERNAL }] },
@@ -27,7 +27,7 @@ const day2Assignments: Array<{ room: string; judges: JudgeAssignment[] }> = [
   { room: "C-209", judges: [{ judgeId: "external-revanth-vaddi", role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-umashankar", role: VenueJudgeRole.INTERNAL }] },
   { room: "C-306", judges: [{ judgeId: "external-himaja-k", role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-nandhitha", role: VenueJudgeRole.INTERNAL }] },
   { room: "C-307", judges: [{ judgeId: "external-sujith-g", role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-kalyani", role: VenueJudgeRole.INTERNAL }] },
-  { room: "S-201", judges: [{ aliases: ["Mr. Mohammad Ali", "Mohammad Ali"], createIfMissing: { id: "day2-external-mohammad-ali", name: "Mr. Mohammad Ali", designation: "External Judge", department: "External" }, role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-ravi-kumar", role: VenueJudgeRole.INTERNAL }] },
+  { room: "S-201", judges: [{ judgeId: "external-mohammed-adil", role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-ravi-kumar", role: VenueJudgeRole.INTERNAL }] },
   { room: "S-303", judges: [{ judgeId: "external-praveen-martin", role: VenueJudgeRole.EXTERNAL, primary: true }, { judgeId: "internal-marlin-linda", role: VenueJudgeRole.INTERNAL }] },
   { room: "C-309", judges: [{ judgeId: "external-vinay-reddy", role: VenueJudgeRole.EXTERNAL, primary: true }, { aliases: ["Mrs. Vijaya", "Vijaya"], createIfMissing: { id: "day2-internal-vijaya-cse", name: "Mrs. Vijaya", designation: "Internal Judge", department: "CSE" }, role: VenueJudgeRole.INTERNAL }] },
   { room: "S-103", judges: [{ judgeId: "internal-srinivasa-rao", role: VenueJudgeRole.INTERNAL, primary: true }, { judgeId: "internal-sailaja", role: VenueJudgeRole.INTERNAL }] },
@@ -76,6 +76,7 @@ async function main() {
       const judge = item.judge ?? await tx.judge.create({ data: item.createIfMissing! });
       await tx.venueJudge.create({ data: { id: crypto.randomUUID(), venueId: venue.id, judgeId: judge.id, role: item.role, isPrimary: item.primary } });
     }
+    await tx.judge.deleteMany({ where: { id: "day2-external-mohammad-ali", venueAssignments: { none: {} }, reviews: { none: {} }, reviewsCompleted: { none: {} } } });
   }, { maxWait: 10_000, timeout: 120_000 });
 
   const liveAssignments = await prisma.venueJudge.findMany({
