@@ -17,6 +17,7 @@
     "test:event-config": "tsx --test scripts/test-event-configuration.ts",
     "test:registration-import": "tsx --test scripts/test-registration-import.ts",
     "test:exports": "tsx --test scripts/test-leaderboard-export.ts",
+    "test:final-report": "tsx --test scripts/test-final-report-workbook.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
