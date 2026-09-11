@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Building2, ChartColumn, ChevronDown, ChevronRight, Eye, Link2, LockKeyhole, Menu, MessageSquareWarning, QrCode, RefreshCw, Scale, Settings2, Trophy, UserRound, X } from "lucide-react";
+import { Bell, Building2, ChartColumn, ChevronDown, ChevronRight, Eye, FileSpreadsheet, Link2, LockKeyhole, Menu, MessageSquareWarning, QrCode, RefreshCw, Scale, Settings2, Trophy, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { rangeLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -86,7 +86,9 @@ function JudgeContext({ data, pathname, onNavigate }: { data: AdminShellData; pa
 const operationLinks = [
   { href: "/admin/manage", label: "Manage event", icon: Settings2 },
   { href: "/admin/qr-cards", label: "Team QR cards", icon: QrCode },
+  { href: "/admin/judges", label: "Judges", icon: UserRound },
   { href: "/admin/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/admin/reports/final", label: "Final report", icon: FileSpreadsheet },
   { href: "/admin/problem-statements", label: "PS analytics", icon: ChartColumn },
   { href: "/admin/feedback", label: "Feedback release", icon: Eye },
   { href: "/admin/submissions", label: "Submissions", icon: Link2 },
