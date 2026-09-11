@@ -471,7 +471,7 @@ export const evaluationRepository: EvaluationRepository = {
     const items: TeamListItem[] = record.teams.map((team) => {
       const mappedReviews = team.reviews.map(mapReview);
       const latestActivity = mappedReviews.flatMap((review) => [review.submittedAt, review.startedAt]).filter((value): value is string => Boolean(value)).sort().at(-1);
-      return { team: mapTeam(team), problemStatement: mapProblemStatement(team.problemStatement), reviews: mappedReviews, latestActivity };
+      return { team: mapTeam(team), problemStatement: mapProblemStatement(team.problemStatement), reviews: mappedReviews, latestActivity, finalDecision: team.finalDecision };
     });
     return { venue, progress: calculateVenueProgress(venue, rounds, progressTeams), teams: items };
   },

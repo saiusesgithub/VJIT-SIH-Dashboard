@@ -149,6 +149,7 @@ export interface TeamListItem {
   problemStatement: ProblemStatement;
   reviews: Review[];
   latestActivity?: string;
+  finalDecision?: "SHORTLISTED" | "HOLD" | "ELIMINATED" | null;
 }
 
 export interface AdminShellTeamContext {

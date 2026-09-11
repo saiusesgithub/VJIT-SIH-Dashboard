@@ -82,6 +82,7 @@ export const getTeamPortalData = cache(async (session: TeamSessionPayload) => {
   });
   return {
     identity: { id: team.id, code: team.teamCode, name: team.teamName },
+    finalDecision: team.finalDecision,
     venue: { id: team.venue.id, name: team.venue.name, room: team.venue.roomNumber },
     problem: { code: team.problemStatement.code, title: team.problemStatement.title, description: team.problemStatement.description, organization: team.problemStatement.organization ?? "—", theme: team.problemStatement.theme ?? team.problemStatement.category ?? "—" },
     members: team.members.map((member) => ({ id: member.id, name: member.name, rollNumber: member.rollNumber, department: member.department, year: member.year, role: member.role ?? "Member" })),
