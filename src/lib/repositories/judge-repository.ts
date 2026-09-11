@@ -2,7 +2,7 @@ import "server-only";
 
 import { compare } from "bcryptjs";
 import { cache } from "react";
-import { Prisma, ReviewStatus } from "@/generated/prisma/client";
+import { Prisma, ReviewStatus, ShortlistingDecision } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db";
 import { normalizeJudgePhone } from "@/lib/judge-credentials";
 import { canJudgeEditCompletedReview, canJudgeWriteReview, type JudgeReviewAuthContext } from "@/lib/judge-review-authorization";
@@ -76,7 +76,7 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
   if (!assignments.length) return null;
   const identity = mapIdentity(assignments.find((item) => item.id === session.assignmentId) ?? assignments[0], assignments);
   const venueIds = assignments.map((item) => item.venueId);
-  const venues = await getDb().venue.findMany({ where: { id: { in: venueIds } }, include: { hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } }, teams: { include: { problemStatement: true, reviews: true }, orderBy: { teamCode: "asc" } }, problemStatements: { select: { code: true }, orderBy: { code: "asc" } }, judgeAssignments: { include: { judge: true }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] }, facultyCoordinators: { orderBy: { name: "asc" } } }, orderBy: { displayOrder: "asc" } });
+  const venues = await getDb().venue.findMany({ where: { id: { in: venueIds } }, include: { hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } }, teams: { where: { finalDecision: ShortlistingDecision.SHORTLISTED }, include: { problemStatement: true, reviews: true }, orderBy: { teamCode: "asc" } }, problemStatements: { select: { code: true }, orderBy: { code: "asc" } }, judgeAssignments: { include: { judge: true }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] }, facultyCoordinators: { orderBy: { name: "asc" } } }, orderBy: { displayOrder: "asc" } });
   const assignedByVenue = new Map(assignments.map((item) => [item.venueId, item]));
   const allTeams = venues.flatMap((venue) => venue.teams);
   const rounds = venues[0]?.hackathon.reviewRounds ?? [];
@@ -93,20 +93,20 @@ export async function getJudgeDashboard(session: JudgeSessionPayload): Promise<J
 
 export async function getJudgeTeamDetails(session: JudgeSessionPayload, teamId: string): Promise<JudgeTeamData | null> {
   if (!safeId(teamId)) return null;
-  const team = await getDb().team.findFirst({ where: { OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] }, include: { venue: true, members: { orderBy: { id: "asc" } }, submissions: { orderBy: { type: "asc" } }, problemStatement: true, reviews: { include: { reviewRound: true }, orderBy: { reviewRound: { displayOrder: "asc" } } }, hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } } } });
+  const team = await getDb().team.findFirst({ where: { finalDecision: ShortlistingDecision.SHORTLISTED, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] }, include: { venue: true, members: { orderBy: { id: "asc" } }, submissions: { orderBy: { type: "asc" } }, problemStatement: true, reviews: { include: { reviewRound: true }, orderBy: { reviewRound: { displayOrder: "asc" } } }, hackathon: { include: { reviewRounds: { orderBy: { displayOrder: "asc" } } } } } });
   if (!team || !(await assignmentForSessionVenue(session, team.venueId))) return null;
   return { id: team.id, code: team.teamCode, name: team.teamName, venue: { name: team.venue.name, room: team.venue.roomNumber }, problem: { code: team.problemStatement.code, title: team.problemStatement.title, description: team.problemStatement.description, organization: team.problemStatement.organization ?? "—", theme: team.problemStatement.theme ?? team.problemStatement.category ?? "—" }, members: team.members.map((member) => ({ id: member.id, name: member.name, department: member.department, year: member.year, role: member.role ?? "Member" })), submissions: team.submissions.map((item) => ({ id: item.id, type: item.type, label: item.label ?? item.type, url: item.url })), rounds: team.hackathon.reviewRounds.map((round) => { const review = team.reviews.find((candidate) => candidate.reviewRoundId === round.id); return { id: round.id, number: round.roundNumber, name: round.name, status: review ? statusMap[review.status] : "pending" as const, submittedAt: review?.submittedAt?.toISOString() }; }) };
 }
 export async function getJudgeTeamAccessFailure(session: JudgeSessionPayload, teamId: string) {
   if (!safeId(teamId)) return "not_found" as const;
-  const team = await getDb().team.findFirst({ where: { OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] }, select: { venueId: true } });
-  if (!team) return "not_found" as const;
+  const team = await getDb().team.findFirst({ where: { OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] }, select: { venueId: true, finalDecision: true } });
+  if (!team || team.finalDecision !== ShortlistingDecision.SHORTLISTED) return "not_found" as const;
   return (await assignmentForSessionVenue(session, team.venueId)) ? "not_found" as const : "wrong_venue" as const;
 }
 
 export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId: string, roundId: string): Promise<JudgeReviewData | null> {
   if (!safeId(teamId) || !safeId(roundId)) return null;
-  const team = await getDb().team.findFirst({ where: { OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] }, include: { reviews: { include: { scores: true, completedByJudge: { include: { venueAssignments: true } } } }, hackathon: { include: { reviewRounds: { include: { rubrics: { orderBy: { displayOrder: "asc" } } }, orderBy: { displayOrder: "asc" } } } } } });
+  const team = await getDb().team.findFirst({ where: { finalDecision: ShortlistingDecision.SHORTLISTED, OR: [{ id: teamId }, { teamCode: { equals: teamId, mode: "insensitive" } }] }, include: { reviews: { include: { scores: true, completedByJudge: { include: { venueAssignments: true } } } }, hackathon: { include: { reviewRounds: { include: { rubrics: { orderBy: { displayOrder: "asc" } } }, orderBy: { displayOrder: "asc" } } } } } });
   if (!team) return null;
   const assignment = await assignmentForSessionVenue(session, team.venueId);
   if (!assignment) return null;
@@ -121,7 +121,7 @@ export async function getReviewForTeamRound(session: JudgeSessionPayload, teamId
 export async function startReview(session: JudgeSessionPayload, teamId: string, roundId: string) {
   if (!safeId(teamId) || !safeId(roundId)) return null;
   return getDb().$transaction(async (tx) => {
-    const team = await tx.team.findFirst({ where: { id: teamId }, select: { id: true, venueId: true, hackathonId: true } });
+    const team = await tx.team.findFirst({ where: { id: teamId, finalDecision: ShortlistingDecision.SHORTLISTED }, select: { id: true, venueId: true, hackathonId: true } });
     if (!team) return null;
     const [sessionAssignment, assignment] = await Promise.all([
       tx.venueJudge.findFirst({ where: { id: session.assignmentId, judgeId: session.judgeId }, select: { id: true } }),
@@ -143,7 +143,7 @@ function sameCompletedReview(review: { generalRemarks: string | null; improvemen
 export async function markReviewAbsent(session: JudgeSessionPayload, teamId: string, roundId: string) {
   if (!safeId(teamId) || !safeId(roundId)) return { ok: false as const, code: "invalid" as const };
   return getDb().$transaction(async (tx) => {
-    const team = await tx.team.findFirst({ where: { id: teamId }, select: { id: true, venueId: true, hackathonId: true } });
+    const team = await tx.team.findFirst({ where: { id: teamId, finalDecision: ShortlistingDecision.SHORTLISTED }, select: { id: true, venueId: true, hackathonId: true } });
     if (!team) return { ok: false as const, code: "not_found" as const };
     const [sessionAssignment, assignment, round] = await Promise.all([
       tx.venueJudge.findFirst({ where: { id: session.assignmentId, judgeId: session.judgeId }, select: { id: true } }),
@@ -163,7 +163,7 @@ export async function markReviewAbsent(session: JudgeSessionPayload, teamId: str
 export async function submitReview(session: JudgeSessionPayload, teamId: string, roundId: string, submission: ReviewSubmission) {
   if (!safeId(teamId) || !safeId(roundId) || submission.remarks.length > 5000 || submission.improvements.length > 5000) return { ok: false as const, code: "invalid" as const };
   return getDb().$transaction(async (tx) => {
-    const team = await tx.team.findFirst({ where: { id: teamId }, select: { id: true, venueId: true, hackathonId: true } });
+    const team = await tx.team.findFirst({ where: { id: teamId, finalDecision: ShortlistingDecision.SHORTLISTED }, select: { id: true, venueId: true, hackathonId: true } });
     if (!team) return { ok: false as const, code: "not_found" as const };
     const [sessionAssignment, assignment] = await Promise.all([
       tx.venueJudge.findFirst({ where: { id: session.assignmentId, judgeId: session.judgeId }, select: { id: true } }),
