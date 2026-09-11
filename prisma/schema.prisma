@@ -204,6 +204,7 @@ model Team {
   reviews             Review[]
   submissions         TeamSubmission[]
   issues              TeamIssue[]
+  feedback            TeamFeedback?
   userProfile         UserProfile?
 
   @@unique([hackathonId, teamCode])
@@ -302,6 +303,25 @@ model TeamIssue {
   @@index([status])
   @@index([category])
   @@index([createdAt])
+}
+
+model TeamFeedback {
+  id                  String   @id
+  teamId              String   @unique
+  preGuidelines       Int
+  preCommunication    Int
+  supportCoordination Int
+  supportMentors      Int
+  infraResources      Int
+  infraWorkspace      Int
+  evaluationClarity   Int
+  evaluationFairness  Int
+  keyLearnings        String
+  overallFeedback     String
+  submittedAt         DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  team                Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 }
 
 model Rubric {

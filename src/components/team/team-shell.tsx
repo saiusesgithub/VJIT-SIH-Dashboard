@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ClipboardList, Home, Link2, LogOut, MessageSquareWarning } from "lucide-react";
+import { Bell, ClipboardList, Home, Link2, LogOut, MessageSquareText, MessageSquareWarning } from "lucide-react";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { cn } from "@/lib/cn";
 
@@ -16,6 +16,7 @@ const navigation = [
   { href: "/team/submissions", label: "Submissions", icon: Link2 },
   { href: "/team/announcements", label: "Updates", icon: Bell, notification: "updates" as const },
   { href: "/team/issues", label: "Issues", icon: MessageSquareWarning, notification: "issues" as const },
+  { href: "/team/feedback", label: "Feedback", icon: MessageSquareText },
 ];
 
 function subscribeSeen(callback: () => void) {
@@ -65,8 +66,9 @@ export function TeamShell({ identity, notificationVersions, children }: { identi
       <form action="/team/logout" method="post"><PendingSubmitButton pendingLabel="Locking…" className="min-h-9 rounded-lg px-2.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"><LogOut className="size-3.5" /> <span className="hidden sm:inline">Sign out</span></PendingSubmitButton></form>
     </div></header>
     <main className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-7"><div key={pathname} className="app-enter">{children}</div></main>
-    <nav aria-label="Team portal" className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:bottom-4 md:left-1/2 md:right-auto md:w-[min(56rem,calc(100%-2rem))] md:-translate-x-1/2 md:rounded-xl md:border md:pb-0 md:shadow-[0_8px_30px_rgba(24,24,27,0.10)]"><div className="mx-auto grid h-16 max-w-4xl grid-cols-5 px-1 md:h-14 md:px-2">
+    <nav aria-label="Team portal" className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:bottom-4 md:left-1/2 md:right-auto md:w-[min(56rem,calc(100%-2rem))] md:-translate-x-1/2 md:rounded-xl md:border md:pb-0 md:shadow-[0_8px_30px_rgba(24,24,27,0.10)]"><div className="mx-auto grid h-16 max-w-4xl grid-cols-6 px-1 md:h-14 md:px-2">
       {navigation.map(({ href, label, icon: Icon, ...item }) => { const active = pathname === href; const section = "notification" in item ? item.notification : undefined; return <Link key={href} href={href} className={cn("group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium transition-all duration-200 md:flex-row md:gap-2 md:text-xs", active ? "bg-blue-50 text-blue-700 md:my-1.5" : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900")}><Icon className={cn("size-4 transition-transform duration-200 group-hover:-translate-y-0.5", active && "stroke-[2.4]")} /><span className="truncate">{label}</span>{section ? <UnreadDot teamId={identity.code} section={section} version={versions[section]} active={active} /> : null}<LinkProgress /></Link>; })}
     </div></nav>
   </div>;
 }
+

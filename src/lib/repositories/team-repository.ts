@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { cache } from "react";
 import { compare } from "bcryptjs";
 import { AnnouncementAudience, IssueCategory, SubmissionType } from "@/generated/prisma/client";
@@ -17,6 +18,33 @@ export async function authenticateTeamByAccessCode(rawCode: string) {
   const team = await getDb().team.findUnique({ where: { accessCodeLookup: createTeamAccessLookup(code) }, select: { id: true, teamCode: true, teamName: true, accessCodeHash: true } });
   const valid = await compare(code, team?.accessCodeHash ?? DUMMY_TEAM_ACCESS_HASH);
   return team && valid ? { id: team.id, code: team.teamCode, name: team.teamName } : null;
+}
+
+export type TeamFeedbackInput = {
+  preGuidelines: number;
+  preCommunication: number;
+  supportCoordination: number;
+  supportMentors: number;
+  infraResources: number;
+  infraWorkspace: number;
+  evaluationClarity: number;
+  evaluationFairness: number;
+  keyLearnings: string;
+  overallFeedback: string;
+};
+
+export async function getTeamFeedback(session: TeamSessionPayload) {
+  return getDb().teamFeedback.findUnique({ where: { teamId: session.teamId } });
+}
+
+export async function saveTeamFeedback(session: TeamSessionPayload, input: TeamFeedbackInput) {
+  const values = Object.values(input).slice(0, 8);
+  if (values.some((value) => typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 5)) return { ok: false as const, error: "Please answer every rating question." };
+  if (input.keyLearnings.trim().length < 3 || input.keyLearnings.length > 3000 || input.overallFeedback.trim().length < 3 || input.overallFeedback.length > 3000) return { ok: false as const, error: "Please provide both written responses." };
+  const team = await getDb().team.findFirst({ where: { id: session.teamId, accessCodeHash: { not: null } }, select: { id: true } });
+  if (!team) return { ok: false as const, error: "Team session expired. Please sign in again." };
+  await getDb().teamFeedback.upsert({ where: { teamId: team.id }, create: { id: randomUUID(), teamId: team.id, ...input, keyLearnings: input.keyLearnings.trim(), overallFeedback: input.overallFeedback.trim() }, update: { ...input, keyLearnings: input.keyLearnings.trim(), overallFeedback: input.overallFeedback.trim(), submittedAt: new Date() } });
+  return { ok: true as const };
 }
 
 export const getTeamSessionData = cache(async (session: TeamSessionPayload) => {
@@ -56,7 +84,7 @@ export const getTeamPortalData = cache(async (session: TeamSessionPayload) => {
       members: { orderBy: { id: "asc" } },
       submissions: { orderBy: { type: "asc" } },
       issues: { orderBy: { createdAt: "desc" } },
-      reviews: { include: { reviewRound: true }, orderBy: { reviewRound: { displayOrder: "asc" } } },
+      reviews: { include: { reviewRound: { include: { rubrics: { orderBy: { displayOrder: "asc" } } } }, scores: true }, orderBy: { reviewRound: { displayOrder: "asc" } } },
       hackathon: {
         include: {
           reviewRounds: { orderBy: { displayOrder: "asc" } },
@@ -78,6 +106,9 @@ export const getTeamPortalData = cache(async (session: TeamSessionPayload) => {
       completedAt: review?.submittedAt?.toISOString(),
       feedbackVisible: round.feedbackVisibleToTeams,
       feedback: round.feedbackVisibleToTeams && review?.status === "COMPLETED" ? { remarks: review.generalRemarks ?? "", improvements: review.improvements ?? "", submittedAt: review.submittedAt?.toISOString() } : null,
+      scores: review?.scores.map((score) => ({ rubricId: score.rubricId, score: score.score.toNumber(), rubric: review.reviewRound.rubrics.find((rubric) => rubric.id === score.rubricId)?.name ?? "Criterion", maximum: review.reviewRound.rubrics.find((rubric) => rubric.id === score.rubricId)?.maxMarks.toNumber() ?? 0 })) ?? [],
+      totalScore: review?.scores.reduce((sum, score) => sum + score.score.toNumber(), 0) ?? 0,
+      maximumScore: review?.reviewRound.rubrics.reduce((sum, rubric) => sum + rubric.maxMarks.toNumber(), 0) ?? 0,
     };
   });
   return {
