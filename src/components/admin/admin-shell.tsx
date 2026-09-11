@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Building2, ChartColumn, ChevronRight, Eye, Link2, LockKeyhole, Menu, MessageSquareWarning, QrCode, RefreshCw, Scale, Settings2, Trophy, UserRound, X } from "lucide-react";
+import { Bell, Building2, ChartColumn, ChevronDown, ChevronRight, Eye, Link2, LockKeyhole, Menu, MessageSquareWarning, QrCode, RefreshCw, Scale, Settings2, Trophy, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { rangeLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -19,31 +19,37 @@ function Logo() {
 }
 
 function VenueNavigation({ data, pathname, onNavigate }: { data: AdminShellData; pathname: string; onNavigate?: () => void }) {
+  const day2Venues = data.venues.filter((progress) => progress.venue.id.startsWith("venue-day2-"));
+  const day1Venues = data.venues.filter((progress) => !progress.venue.id.startsWith("venue-day2-"));
+
+  const venueLinks = (venues: AdminShellData["venues"]) => venues.map((progress) => {
+    const venue = progress.venue;
+    const active = pathname === `/admin/venues/${venue.id}`;
+    return (
+      <Link key={venue.id} href={`/admin/venues/${venue.id}`} onClick={onNavigate} className={cn("group block rounded-lg border px-3 py-3 transition-colors duration-150", active ? "border-zinc-300 bg-white" : "border-transparent hover:border-zinc-200 hover:bg-white/70")}>
+        <div className="flex items-center justify-between gap-2">
+          <span className={cn("text-sm font-medium", active ? "text-zinc-950" : "text-zinc-700")}>{venue.name}</span>
+          <ChevronRight className={cn("size-3.5 transition-transform duration-150", active ? "text-zinc-600" : "text-zinc-300 group-hover:translate-x-0.5 group-hover:text-zinc-500")} />
+        </div>
+        <p className="mt-0.5 truncate text-xs text-zinc-500">{venue.room} · {venue.teamCodeRange ?? rangeLabel(venue.problemStatementIds.map((id) => id.toUpperCase()))}</p>
+        <div className="mt-2.5 flex items-center gap-2">
+          <ProgressBar value={progress.percentage} className="flex-1" />
+          <span className="w-7 text-right text-[11px] font-medium tabular-nums text-zinc-500">{progress.percentage}%</span>
+        </div>
+        <p className="mt-1.5 text-[11px] text-zinc-400">{progress.teamCount} loaded{venue.plannedTeamCount != null ? ` · ${venue.plannedTeamCount} planned` : ""}</p>
+      </Link>
+    );
+  });
+
   return (
     <div className="px-3 py-5">
       <div className="mb-2 flex items-center justify-between px-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Venues</p>
         <span className="text-[11px] tabular-nums text-zinc-400">{data.venues.length} venues</span>
       </div>
-      <nav className="space-y-1" aria-label="Venue navigation">
-        {data.venues.map((progress) => {
-          const venue = progress.venue;
-          const active = pathname === `/admin/venues/${venue.id}`;
-          return (
-            <Link key={venue.id} href={`/admin/venues/${venue.id}`} onClick={onNavigate} className={cn("group block rounded-lg border px-3 py-3 transition-colors duration-150", active ? "border-zinc-300 bg-white" : "border-transparent hover:border-zinc-200 hover:bg-white/70")}>
-              <div className="flex items-center justify-between gap-2">
-                <span className={cn("text-sm font-medium", active ? "text-zinc-950" : "text-zinc-700")}>{venue.name}</span>
-                <ChevronRight className={cn("size-3.5 transition-transform duration-150", active ? "text-zinc-600" : "text-zinc-300 group-hover:translate-x-0.5 group-hover:text-zinc-500")} />
-              </div>
-              <p className="mt-0.5 truncate text-xs text-zinc-500">{venue.room} · {venue.teamCodeRange ?? rangeLabel(venue.problemStatementIds.map((id) => id.toUpperCase()))}</p>
-              <div className="mt-2.5 flex items-center gap-2">
-                <ProgressBar value={progress.percentage} className="flex-1" />
-                <span className="w-7 text-right text-[11px] font-medium tabular-nums text-zinc-500">{progress.percentage}%</span>
-              </div>
-              <p className="mt-1.5 text-[11px] text-zinc-400">{progress.teamCount} loaded{venue.plannedTeamCount != null ? ` · ${venue.plannedTeamCount} planned` : ""}</p>
-            </Link>
-          );
-        })}
+      <nav className="space-y-3" aria-label="Venue navigation">
+        {day2Venues.length ? <section aria-label="Day 2 venues"><p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-700">Day 2 venues</p><div className="space-y-1">{venueLinks(day2Venues)}</div></section> : null}
+        {day1Venues.length ? <details className="group border-t border-zinc-200 pt-2" open={day1Venues.some((progress) => pathname === `/admin/venues/${progress.venue.id}`)}><summary className="flex cursor-pointer list-none items-center justify-between rounded-lg px-2 py-2 text-xs font-medium text-zinc-500 transition-colors hover:bg-white hover:text-zinc-800"><span>Day 1 rooms <span className="ml-1 tabular-nums text-zinc-400">({day1Venues.length})</span></span><ChevronDown className="size-3.5 transition-transform duration-150 group-open:rotate-180" /></summary><div className="mt-1 space-y-1">{venueLinks(day1Venues)}</div></details> : null}
       </nav>
     </div>
   );
